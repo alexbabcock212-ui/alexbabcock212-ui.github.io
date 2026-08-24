@@ -211,6 +211,21 @@ a:hover { color: var(--color-accent); }
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+.ld-refresh:disabled { color: var(--color-neutral-600); text-decoration: none; cursor: default; }
+.ld-connect:disabled {
+  background: var(--color-neutral-300);
+  border-color: var(--color-neutral-300);
+  color: var(--color-neutral-600);
+  cursor: default;
+}
+
+/* A source that failed while the others worked — a note, not a whole error
+   state, because there is still a screen full of real data behind it. */
+.ld-rebuild__warn {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-accent-700);
+}
 
 .ld-empty__error {
   font-size: 12.5px;
@@ -450,92 +465,6 @@ a:hover { color: var(--color-accent); }
   text-wrap: pretty;
 }
 
-/* ─── money ────────────────────────────────────────────────────────────── */
-
-.ld-networth {
-  background: var(--color-accent-900);
-  color: var(--color-bg);
-  padding: 18px 20px;
-}
-.ld-networth__value {
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 46px;
-  line-height: 1;
-}
-.ld-networth__delta { font-size: 13px; color: var(--color-accent-200); margin-top: 4px; }
-
-.ld-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-bottom: 1px solid var(--color-neutral-300);
-}
-.ld-stat { padding: 13px 14px; border-right: 1px solid var(--color-neutral-300); }
-.ld-stat:last-child { border-right: 0; }
-.ld-stat--lead { background: var(--color-accent-100); }
-.ld-stat__label {
-  font-family: var(--font-heading);
-  font-size: 10.5px;
-  letter-spacing: 0.14em;
-  color: var(--color-neutral-600);
-}
-.ld-stat--lead .ld-stat__label { color: var(--color-accent-700); }
-.ld-stat__value { font-family: var(--font-heading); font-size: 24px; line-height: 1.1; }
-.ld-stat--lead .ld-stat__value { color: var(--color-accent-900); }
-
-.ld-block-title {
-  padding: 16px 20px 6px;
-  font-family: var(--font-heading);
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.14em;
-}
-
-.ld-positions { padding: 0 20px; }
-.ld-position {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 12px;
-  align-items: baseline;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--color-neutral-300);
-}
-.ld-position__name { font-family: var(--font-heading); font-size: 16px; }
-.ld-position__desc { font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); }
-.ld-position__value { font-family: var(--font-heading); font-size: 16px; }
-.ld-position__change {
-  font-family: var(--font-heading);
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  padding: 2px 6px;
-}
-.ld-position__change--up { color: var(--color-bg); background: var(--color-accent-700); }
-.ld-position__change--quiet {
-  color: var(--color-neutral-700);
-  border: 1px solid var(--color-neutral-300);
-}
-
-.ld-outflows { padding: 0 20px 18px; }
-.ld-outflow {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--color-neutral-300);
-  font-size: 14px;
-}
-.ld-outflow__amount { font-family: var(--font-heading); font-size: 15px; white-space: nowrap; }
-
-.ld-callout {
-  margin: 0 20px 26px;
-  background: var(--color-accent-900);
-  color: var(--color-accent-200);
-  padding: 14px;
-  font-size: 13px;
-  line-height: 1.55;
-  text-wrap: pretty;
-}
-
 /* ─── due ──────────────────────────────────────────────────────────────── */
 
 .ld-deadlines {
@@ -669,12 +598,90 @@ a:hover { color: var(--color-accent); }
 .ld-course__fill { height: 3px; background: var(--color-accent); }
 .ld-course--today .ld-course__fill { background: var(--color-accent-900); }
 .ld-course__facts { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+.ld-course__meets--none { color: var(--color-neutral-500, var(--color-neutral-600)); }
+.ld-course__nofolder {
+  margin-top: 9px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+/* The materials drawer. Closed by default: a phone screen holds one course's
+   worth of filenames, not five. */
+.ld-course__toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 11px;
+  padding: 8px 0 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--color-neutral-300);
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.ld-course__count {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-600);
+}
+.ld-course--today .ld-course__count { color: var(--color-accent-700); }
+.ld-course__chevron {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  line-height: 1;
+  color: var(--color-accent-700);
+}
+
+.ld-course__materials { margin-top: 10px; display: flex; flex-direction: column; gap: 11px; }
+.ld-course__sections { display: flex; flex-wrap: wrap; gap: 5px; }
+.ld-course__section-chip {
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  padding: 3px 7px;
+  border: 1px solid var(--color-neutral-300);
+  color: var(--color-neutral-700);
+}
+
+.ld-matgroup__name {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+  margin-bottom: 4px;
+}
+.ld-matlist { list-style: none; padding: 0; }
+.ld-mat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+  font-size: 12.5px;
+}
+.ld-mat:last-child { border-bottom: 0; }
+/* Filenames are long and arbitrary; clip rather than reflow the row. */
+.ld-mat__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ld-mat__kind {
+  flex: none;
+  font-family: var(--font-heading);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-600);
+}
 
 /* ─── tab bar ──────────────────────────────────────────────────────────── */
 
 .ld-tabs {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   background: var(--color-accent-900);
   /* Keep the labels above the home indicator. */
   padding-bottom: env(safe-area-inset-bottom);
@@ -701,4 +708,80 @@ a:hover { color: var(--color-accent); }
   bottom: 8px;
   height: 3px;
   background: var(--color-bg);
+}
+
+/* ─── device key sheet ─────────────────────────────────────────────────── */
+
+/* Sits inside the phone frame rather than over the page, so it behaves the
+   same in the desktop bezel as it does full-screen on iOS. */
+.ld-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  background: color-mix(in srgb, var(--color-accent-900) 45%, transparent);
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.ld-sheet__panel {
+  position: relative;
+  width: 100%;
+  background: var(--color-bg);
+  border: 1px solid var(--color-accent-900);
+  padding: 18px 16px 16px;
+}
+.ld-sheet__kicker {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--color-accent-700);
+}
+.ld-sheet__title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.15;
+  margin-top: 3px;
+}
+.ld-sheet__note {
+  margin-top: 7px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-neutral-700);
+  text-wrap: pretty;
+}
+.ld-sheet__input {
+  width: 100%;
+  margin-top: 13px;
+  padding: 10px 11px;
+  font-family: var(--font-body);
+  /* 16px or iOS zooms the whole frame on focus. */
+  font-size: 16px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 0;
+}
+.ld-sheet__input:focus { border-color: var(--color-accent); outline: none; }
+.ld-sheet__actions { display: flex; align-items: center; gap: 10px; }
+.ld-sheet__actions .ld-connect { margin-left: auto; }
+.ld-sheet__cancel {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
+  margin-top: 13px;
+  padding: 8px 0;
+  background: none;
+  border: 0;
+  color: var(--color-neutral-600);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ld-sheet__fine {
+  margin-top: 11px;
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
 }

@@ -1,30 +1,15 @@
 /**
  * Google Calendar → the dashboard's shapes.
  *
- * Everything here is derived from real events. Where the calendar cannot know
- * something — a lecture's topic, its readings, how far through the term a
- * course is — the field is left empty rather than guessed, and the views hide
- * it. Those gaps close when syllabus data exists, not before.
+ * Pure functions over events the Worker already fetched. Where the calendar
+ * cannot know something — a lecture's topic, how far through the term a course
+ * is — the field is left empty rather than guessed, and the views hide it.
  */
-import type { AllocSegment, Chip, Course, Slot } from '../types'
-
-const API = 'https://www.googleapis.com/calendar/v3'
-
-/** How far ahead to look when working out the term's meeting pattern. */
-const HORIZON_DAYS = 14
+import type { AllocSegment, Chip, Slot } from '../types'
 
 /** The window the "unclaimed hours" figure is measured against: 08:00–24:00. */
 const DAY_START_HOUR = 8
 const DAY_END_HOUR = 24
-
-interface ApiEvent {
-  id: string
-  summary?: string
-  location?: string
-  status?: string
-  start?: { dateTime?: string; date?: string; timeZone?: string }
-  end?: { dateTime?: string; date?: string }
-}
 
 export interface CalendarEvent {
   id: string
@@ -70,77 +55,19 @@ export function parseCourse(title: string, now: Date = new Date()): CalendarEven
   return { code: `${subject} ${number}`, subject, number }
 }
 
-/* ── fetching ──────────────────────────────────────────────────────────── */
-
-function startOfDay(d: Date): Date {
-  const out = new Date(d)
-  out.setHours(0, 0, 0, 0)
-  return out
-}
-
-function addDays(d: Date, n: number): Date {
-  const out = new Date(d)
-  out.setDate(out.getDate() + n)
-  return out
-}
-
-export class CalendarError extends Error {
-  /** True when the token is dead and the user should reconnect. */
-  needsReauth: boolean
-
-  constructor(message: string, needsReauth = false) {
-    super(message)
-    this.name = 'CalendarError'
-    this.needsReauth = needsReauth
-  }
-}
-
-/** Fetch the next `HORIZON_DAYS` of events from the primary calendar. */
-export async function fetchEvents(accessToken: string, now = new Date()): Promise<CalendarEvent[]> {
-  const params = new URLSearchParams({
-    timeMin: startOfDay(now).toISOString(),
-    timeMax: addDays(startOfDay(now), HORIZON_DAYS).toISOString(),
-    // Expand recurring events into individual occurrences.
-    singleEvents: 'true',
-    orderBy: 'startTime',
-    maxResults: '250',
-  })
-
-  const response = await fetch(`${API}/calendars/primary/events?${params}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      throw new CalendarError('Calendar access expired — reconnect to refresh it.', true)
-    }
-    throw new CalendarError(`Calendar returned ${response.status}.`)
-  }
-
-  const body = (await response.json()) as { items?: ApiEvent[] }
-
-  return (body.items ?? [])
-    .filter((e) => e.status !== 'cancelled')
-    // All-day events have `date` rather than `dateTime`; they have no place on
-    // an hour-by-hour timeline and no duration to count toward the day.
-    .filter((e) => Boolean(e.start?.dateTime && e.end?.dateTime))
-    .map((e) => {
-      const title = e.summary?.trim() ?? '(no title)'
-      return {
-        id: e.id,
-        title,
-        location: e.location?.trim() ?? '',
-        start: new Date(e.start!.dateTime!),
-        end: new Date(e.end!.dateTime!),
-        course: parseCourse(title),
-      }
-    })
-}
+/**
+ * Normalise a course code for comparison across sources.
+ *
+ * The calendar writes `Econ 2122`, a Desktop folder might be `econ  2122` or
+ * `ECON2122`. Case and inner spacing are the only differences worth forgiving —
+ * the subject and number themselves must still match exactly.
+ */
+export const codeKey = (code: string) => code.toLowerCase().replace(/\s+/g, '')
 
 /* ── shaping ───────────────────────────────────────────────────────────── */
 
 /** `9:30`, `2:00` — the design's gutter style, no meridiem. */
-function timeLabel(d: Date): string {
+export function timeLabel(d: Date): string {
   const h = d.getHours() % 12 || 12
   return `${h}:${String(d.getMinutes()).padStart(2, '0')}`
 }
@@ -243,43 +170,4 @@ export function toLede(todays: CalendarEvent[]): string | null {
   const parts = [`${todays.length} ${todays.length === 1 ? 'block' : 'blocks'}`]
   if (classes.length) parts.push(`${classes.length} of them class`)
   return `${parts.join(', ')}. First at ${timeLabel(first.start)}.`
-}
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-/**
- * The course list, built from every class occurrence in the horizon.
- *
- * `meets` is the observed pattern — the weekdays and start time actually seen —
- * rather than anything the calendar states outright. `progress` stays 0 because
- * the term's length is unknowable from a two-week window, and the view hides
- * the bar rather than drawing a made-up one.
- */
-export function toCourses(events: CalendarEvent[], today: Date): Course[] {
-  const byCode = new Map<string, { course: NonNullable<CalendarEvent['course']>; seen: CalendarEvent[] }>()
-
-  for (const e of events) {
-    if (!e.course) continue
-    const entry = byCode.get(e.course.code)
-    if (entry) entry.seen.push(e)
-    else byCode.set(e.course.code, { course: e.course, seen: [e] })
-  }
-
-  return [...byCode.values()]
-    .map(({ course, seen }): Course => {
-      const days = [...new Set(seen.map((e) => e.start.getDay()))].sort()
-      const times = [...new Set(seen.map((e) => timeLabel(e.start)))]
-      const meets = `${days.map((d) => WEEKDAYS[d]).join(' ')} ${times[0] ?? ''}`.trim()
-      const room = seen.find((e) => e.location)?.location ?? ''
-
-      return {
-        code: course.code,
-        name: room,
-        meets,
-        progress: 0,
-        today: seen.some((e) => isSameDay(e.start, today)),
-        facts: [],
-      }
-    })
-    .sort((a, b) => a.code.localeCompare(b.code))
 }

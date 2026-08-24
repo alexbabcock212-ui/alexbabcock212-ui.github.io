@@ -1,7 +1,13 @@
 import EmptyState from '../components/EmptyState'
 import type { Dashboard } from '../data/types'
 
-export default function MailView({ dashboard }: { dashboard: Dashboard }) {
+interface Props {
+  dashboard: Dashboard
+  needsKey: boolean
+  onSetUp: () => void
+}
+
+export default function MailView({ dashboard, needsKey, onSetUp }: Props) {
   const { mail, clusters } = dashboard
 
   return (
@@ -14,12 +20,13 @@ export default function MailView({ dashboard }: { dashboard: Dashboard }) {
       {clusters.length === 0 ? (
         <EmptyState
           kicker="GMAIL"
-          title={mail === 'ready' ? 'Nothing waiting' : 'Not connected'}
+          title={mail === 'ready' ? 'Inbox clear' : 'Not set up'}
           note={
             mail === 'ready'
-              ? 'No unread mail that wants a reply.'
-              : 'Connect Google and your unread mail is grouped here into the threads that actually want an answer.'
+              ? 'Nothing unread in your inbox from the last fortnight.'
+              : 'Set this device up and unread inbox mail from the last fortnight is grouped here by sender.'
           }
+          action={needsKey ? { label: 'SET UP THIS DEVICE', onClick: onSetUp } : undefined}
         />
       ) : (
         <div className="ld-clusters">

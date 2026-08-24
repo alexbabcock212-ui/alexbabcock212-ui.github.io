@@ -1,0 +1,205 @@
+/**
+ * The dashboard's back end: one route that reads Google, one flow that sets it
+ * up, and nothing else.
+ *
+ * It exists for a single reason. Google's browser-only token flow issues no
+ * refresh token, so a purely static app has to re-authorize roughly hourly.
+ * Moving the exchange here — where a client secret can actually be kept —
+ * turns signing in into something that happens once, ever.
+ */
+import type { Env } from './env'
+import { SCOPES, exchangeCode, fetchAll } from './google'
+
+/** How long a fetched payload may be reused. `?fresh=1` skips it. */
+const CACHE_SECONDS = 120
+
+/* ── CORS ──────────────────────────────────────────────────────────────── */
+
+const allowed = (env: Env) =>
+  env.ALLOWED_ORIGINS.split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+
+function corsHeaders(request: Request, env: Env): Record<string, string> {
+  const origin = request.headers.get('Origin')
+  if (!origin || !allowed(env).includes(origin)) return {}
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+    // The allowed origin varies per request, so caches must key on it.
+    Vary: 'Origin',
+  }
+}
+
+const json = (body: unknown, status: number, headers: Record<string, string>) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...headers },
+  })
+
+/* ── authorization ─────────────────────────────────────────────────────── */
+
+/**
+ * Compare without leaking length or position through timing.
+ *
+ * `crypto.subtle.timingSafeEqual` is not in the Workers runtime, so this does
+ * the usual constant-time XOR fold over equal-length digests.
+ */
+async function secretsMatch(a: string, b: string): Promise<boolean> {
+  const digest = async (s: string) =>
+    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))
+  const [x, y] = await Promise.all([digest(a), digest(b)])
+  let diff = 0
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i]
+  return diff === 0
+}
+
+function bearer(request: Request): string {
+  const header = request.headers.get('Authorization') ?? ''
+  return header.startsWith('Bearer ') ? header.slice(7).trim() : ''
+}
+
+/* ── the setup flow ────────────────────────────────────────────────────── */
+
+const page = (title: string, body: string, status = 200) =>
+  new Response(
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<title>${title}</title>` +
+      `<style>body{font:16px/1.6 ui-sans-serif,system-ui,sans-serif;max-width:44rem;margin:3rem auto;padding:0 1.25rem;color:#1d2d3d}` +
+      `code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em}` +
+      `pre{background:#f2f4f6;padding:1rem;border-radius:6px;overflow-x:auto;user-select:all}` +
+      `h1{font-size:1.5rem}</style>${body}`,
+    { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+  )
+
+/**
+ * Step one of setup: send the browser to Google's consent screen.
+ *
+ * `access_type=offline` with `prompt=consent` is what makes Google part with a
+ * refresh token — and it only does so on a *fresh* consent, which is why the
+ * prompt is forced rather than skipped.
+ */
+function authStart(url: URL, env: Env): Response {
+  const redirectUri = `${url.origin}/auth/callback`
+  const google = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+  google.search = new URLSearchParams({
+    client_id: env.GOOGLE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: SCOPES,
+    access_type: 'offline',
+    prompt: 'consent',
+    include_granted_scopes: 'true',
+  }).toString()
+
+  return Response.redirect(google.toString(), 302)
+}
+
+async function authCallback(url: URL, env: Env): Promise<Response> {
+  const error = url.searchParams.get('error')
+  if (error) return page('Authorization failed', `<h1>Google said no</h1><p><code>${error}</code></p>`, 400)
+
+  const code = url.searchParams.get('code')
+  if (!code) return page('Missing code', '<h1>No authorization code</h1>', 400)
+
+  const { refreshToken } = await exchangeCode(env, code, `${url.origin}/auth/callback`)
+  if (!refreshToken) {
+    return page(
+      'No refresh token',
+      `<h1>Google returned no refresh token</h1>
+       <p>That happens when this account has already granted the app and Google
+       sees no reason to issue another. Revoke it at
+       <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>
+       and run <code>/auth/start</code> again.</p>`,
+      400,
+    )
+  }
+
+  return page(
+    'Refresh token',
+    `<h1>Copy this into the Worker's secrets</h1>
+     <p>Run this on your Mac, paste the value when prompted, then close this tab.
+     This is the last time you will sign in to Google for this dashboard.</p>
+     <pre>${refreshToken.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)}</pre>
+     <p><code>npx wrangler secret put GOOGLE_REFRESH_TOKEN</code></p>`,
+  )
+}
+
+/* ── the API ───────────────────────────────────────────────────────────── */
+
+async function dashboard(request: Request, url: URL, env: Env, cors: Record<string, string>) {
+  if (!(await secretsMatch(bearer(request), env.DASHBOARD_TOKEN))) {
+    return json({ error: 'Unauthorized' }, 401, cors)
+  }
+
+  const fresh = url.searchParams.get('fresh') === '1'
+  // Key on a fixed URL so the cache is shared by every caller and never keyed
+  // on the bearer token, which must not end up in a cache key.
+  const cacheKey = new Request(`${url.origin}/__cache/dashboard`)
+  const cache = caches.default
+
+  if (!fresh) {
+    const hit = await cache.match(cacheKey)
+    if (hit) {
+      const body = await hit.text()
+      return new Response(body, {
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-Cache': 'hit', ...cors },
+      })
+    }
+  }
+
+  const payload = await fetchAll(env)
+  const body = JSON.stringify(payload)
+
+  // Only cache a read that actually worked; caching an outage would extend it.
+  if (payload.calendar.ok || payload.tasks.ok || payload.mail.ok) {
+    await cache.put(
+      cacheKey,
+      new Response(body, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': `max-age=${CACHE_SECONDS}`,
+        },
+      }),
+    )
+  }
+
+  return new Response(body, {
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-Cache': 'miss', ...cors },
+  })
+}
+
+/* ── routing ───────────────────────────────────────────────────────────── */
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
+    const cors = corsHeaders(request, env)
+
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
+    if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405, cors)
+
+    switch (url.pathname) {
+      case '/api/dashboard':
+        return dashboard(request, url, env, cors)
+
+      // Setup routes are gated on a separate secret, passed in the query string
+      // because a browser redirect cannot carry an Authorization header.
+      case '/auth/start': {
+        const key = url.searchParams.get('key') ?? ''
+        if (!(await secretsMatch(key, env.SETUP_TOKEN))) return page('Nope', '<h1>Not found</h1>', 404)
+        return authStart(url, env)
+      }
+      case '/auth/callback':
+        return authCallback(url, env)
+
+      case '/health':
+        return json({ ok: true }, 200, cors)
+
+      default:
+        return json({ error: 'Not found' }, 404, cors)
+    }
+  },
+}

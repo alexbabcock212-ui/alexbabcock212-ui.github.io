@@ -10,6 +10,20 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
+# The Desktop scan has to happen here, on the Mac — neither the browser nor the
+# Worker can see a filesystem. Skip with SKIP_SCAN=1 to publish the last one.
+if [[ "${SKIP_SCAN:-}" != "1" ]]; then
+  bash scripts/scan.sh
+  echo
+fi
+
+# A build with no service address cannot reach anything, and the failure only
+# shows up on the phone. Catch it here instead.
+if ! grep -qE '^VITE_API_BASE=\S' .env 2>/dev/null; then
+  echo "VITE_API_BASE is empty in .env — deploy the Worker first (see README)." >&2
+  exit 1
+fi
+
 npm run build
 
 # Stop Pages running the build output through Jekyll, which would drop

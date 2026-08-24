@@ -1,11 +1,11 @@
 /** Every screen the tab bar can reach. */
-export type TabId = 'today' | 'courses' | 'due' | 'inbox' | 'money'
+export type TabId = 'today' | 'courses' | 'due' | 'inbox'
 
 /**
  * How a screen's underlying source is doing.
  *
- * Nothing here is wired to a live source yet, so everything reports
- * `not-connected`. Views must render honestly in that state rather than
+ * `not-connected` means this device has no API key yet; `error` means the key
+ * is fine but the read failed. Views must render honestly in both rather than
  * showing content the user could mistake for their own.
  */
 export type SourceState = 'not-connected' | 'loading' | 'ready' | 'error'
@@ -58,13 +58,6 @@ export interface MinorSlot extends SlotBase {
   note: string
 }
 
-/** A course as the calendar alone can describe it. */
-export interface CalendarCourse {
-  code: string
-  subject: string
-  number: string
-}
-
 /** The block the user is looking forward to. */
 export interface HighlightSlot extends SlotBase {
   kind: 'highlight'
@@ -79,12 +72,15 @@ export type Slot = PlainSlot | FeatureSlot | MinorSlot | HighlightSlot
 
 export interface Deadline {
   id: string
+  /** Course code where one could be read off the title, else the list name. */
   course: string
   title: string
   note: string
   /** May contain a newline — rendered with `white-space: pre-line`. */
   when: string
   urgent: boolean
+  /** Sort key, epoch ms. `null` sorts last: undated tasks have no deadline. */
+  at: number | null
 }
 
 /* ── inbox ─────────────────────────────────────────────────────────────── */
@@ -101,54 +97,58 @@ export interface Cluster {
 
 /* ── courses ───────────────────────────────────────────────────────────── */
 
+/** What a file in a course folder is, as far as its extension can say. */
+export type MaterialKind = 'pdf' | 'slides' | 'doc' | 'sheet' | 'data' | 'other'
+
+/** One file inside a course folder on the Desktop. */
+export interface Material {
+  name: string
+  /** The subfolder it sits in — `Week 3`, `Course Info` — or `''` at the root. */
+  section: string
+  kind: MaterialKind
+  /** Last modified, epoch ms. */
+  modified: number
+}
+
+/**
+ * A course folder as `scripts/scan-courses.mjs` found it on the Desktop.
+ *
+ * Baked into the bundle at deploy time: a web page cannot read a filesystem,
+ * so this is a snapshot taken on the Mac, not a live view.
+ */
+export interface CourseFolder {
+  code: string
+  /** Folder name as it appears on disk, which may differ in case or spacing. */
+  folder: string
+  /** Subfolder names, in the order they should be shown. */
+  sections: string[]
+  materials: Material[]
+  fileCount: number
+  /** Newest material's mtime, epoch ms; `null` when the folder is empty. */
+  updated: number | null
+}
+
 export interface Course {
   code: string
+  /** The room, from the calendar — the only name the calendar can supply. */
   name: string
   meets: string
-  /** Fraction of the term's lectures delivered, 0–1. */
+  /** Fraction of the term's lectures delivered, 0–1. Zero when unknowable. */
   progress: number
   /** Meets today — takes the emphasised card. */
   today: boolean
   facts: { label: string; text: string }[]
-}
-
-/* ── money ─────────────────────────────────────────────────────────────── */
-
-export interface Stat {
-  label: string
-  value: string
-  /** The number worth reading first. */
-  lead?: boolean
-}
-
-export interface Position {
-  symbol: string
-  desc: string
-  value: string
-  change: string
-  /** `up` gets the filled badge, `quiet` the outlined one. */
-  changeTone: 'up' | 'quiet'
-}
-
-export interface Outflow {
-  label: string
-  amount: string
-}
-
-export interface NetWorth {
-  kicker: string
-  value: string
-  delta: string
+  /** Desktop materials, when a folder matched this code. */
+  folder: CourseFolder | null
 }
 
 /* ── the whole board ───────────────────────────────────────────────────── */
 
-/** Everything the five screens read, plus the health of each source. */
+/** Everything the four screens read, plus the health of each source. */
 export interface Dashboard {
   calendar: SourceState
   tasks: SourceState
   mail: SourceState
-  money: SourceState
 
   /** Today, from the calendar. */
   allocation: AllocSegment[]
@@ -163,11 +163,6 @@ export interface Dashboard {
   clusters: Cluster[]
   courses: Course[]
 
-  /** When the calendar was last read, epoch ms. Null if never. */
+  /** When the sources were last read, epoch ms. Null if never. */
   fetchedAt: number | null
-
-  netWorth: NetWorth | null
-  moneyStats: Stat[]
-  positions: Position[]
-  outflows: Outflow[]
 }

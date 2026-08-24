@@ -1,6 +1,7 @@
 import Corners from '../components/Corners'
 import EmptyState from '../components/EmptyState'
 import { dateKicker, freshness, salutation } from '../data/dashboard'
+import { MORNING_HOUR, MORNING_MINUTE } from '../data/morning'
 import type { Dashboard, Slot } from '../data/types'
 
 const formatHours = (h: number) => `${h}H`
@@ -105,20 +106,26 @@ function Allocation({ allocation }: { allocation: Dashboard['allocation'] }) {
 interface Props {
   userName: string
   dashboard: Dashboard
-  onConnect: () => void
-  canRefresh: boolean
+  /** No working key on this device — the only thing setup can fix. */
+  needsKey: boolean
+  busy: boolean
+  onSetUp: () => void
+  onRefresh: () => void
   error: string | null
 }
 
 export default function TodayView({
   userName,
   dashboard,
-  onConnect,
-  canRefresh,
+  needsKey,
+  busy,
+  onSetUp,
+  onRefresh,
   error,
 }: Props) {
   const { calendar, schedule, allocation, lede, chips, fetchedAt } = dashboard
   const connected = calendar === 'ready'
+  const loading = busy && fetchedAt === null
 
   return (
     <div>
@@ -146,14 +153,22 @@ export default function TodayView({
         )}
       </header>
 
-      {calendar === 'loading' ? (
+      {loading ? (
         <EmptyState kicker="CALENDAR" title="Reading your day…" note="One moment." />
       ) : !connected ? (
         <EmptyState
           kicker="CALENDAR"
-          title={calendar === 'error' ? 'Could not load' : 'Not connected'}
-          note="Connect Google and your day is assembled here each morning — hour by hour, with the hours nobody has claimed."
-          action={{ label: 'CONNECT GOOGLE', onClick: onConnect }}
+          title={needsKey ? 'Not set up' : 'Could not load'}
+          note={
+            needsKey
+              ? 'This device needs its dashboard key once. After that the day assembles itself each morning — hour by hour, with the hours nobody has claimed.'
+              : 'The dashboard service could not read your calendar. Your last read is still below if there was one.'
+          }
+          action={
+            needsKey
+              ? { label: 'SET UP THIS DEVICE', onClick: onSetUp }
+              : { label: 'TRY AGAIN', onClick: onRefresh }
+          }
           error={error}
         />
       ) : schedule.length === 0 ? (
@@ -188,18 +203,15 @@ export default function TodayView({
 
       {fetchedAt !== null && (
         <footer className="ld-rebuild">
-          <span className="ld-rebuild__at">CALENDAR</span>
+          <span className="ld-rebuild__at">SOURCES</span>
           <span className="ld-rebuild__text">
-            Your timetable, {freshness(fetchedAt)}. Two weeks of it are kept on this
-            device, so it opens without a network.
-            {!canRefresh && (
-              <>
-                {' '}
-                <button type="button" className="ld-refresh" onClick={onConnect}>
-                  Reconnect to refresh
-                </button>
-              </>
-            )}
+            Calendar, tasks and mail, {freshness(fetchedAt)}. Refreshed every morning at{' '}
+            {MORNING_HOUR}:{String(MORNING_MINUTE).padStart(2, '0')} and whenever you come back to
+            it. A fortnight is kept on this device, so it opens without a network.{' '}
+            <button type="button" className="ld-refresh" onClick={onRefresh} disabled={busy}>
+              {busy ? 'Refreshing…' : 'Refresh now'}
+            </button>
+            {error && <span className="ld-rebuild__warn">{error}</span>}
           </span>
         </footer>
       )}

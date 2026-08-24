@@ -1,41 +1,9 @@
 /**
- * The dashboard's data.
+ * The parts of the brief the clock alone can answer.
  *
- * Nothing here is invented. Every source reports `not-connected` and every
- * collection is empty, because none of them are wired yet — the screens render
- * honest empty states rather than content that could be mistaken for the
- * user's own. The only values below are ones genuinely derivable right now,
- * from the clock.
- *
- * Connecting a source means setting its state to `ready` and filling its
- * collections with the shapes in `./types`. No view changes.
+ * Everything else now comes from the Worker (`./useDashboard`) or the Desktop
+ * scan (`./courses`); nothing here is authored data.
  */
-import type { Dashboard } from './types'
-
-export const dashboard: Dashboard = {
-  calendar: 'not-connected',
-  tasks: 'not-connected',
-  mail: 'not-connected',
-  money: 'not-connected',
-
-  allocation: [],
-  schedule: [],
-  lede: null,
-  chips: [],
-
-  fetchedAt: null,
-
-  deadlines: [],
-  clusters: [],
-  courses: [],
-
-  netWorth: null,
-  moneyStats: [],
-  positions: [],
-  outflows: [],
-}
-
-/* ── the parts the clock alone can answer ──────────────────────────────── */
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
@@ -70,4 +38,11 @@ export function clock(now: Date = new Date()): string {
       // Node and some browsers emit a narrow no-break space before AM/PM.
       .replace(/[\u202f\u00a0]/g, ' ')
   )
+}
+
+/** e.g. `24 Aug` — for dating the Desktop scan, which is not a live read. */
+export function shortDate(at: number): string {
+  const d = new Date(at)
+  const month = MONTHS[d.getMonth()]
+  return `${d.getDate()} ${month[0]}${month.slice(1).toLowerCase()}`
 }

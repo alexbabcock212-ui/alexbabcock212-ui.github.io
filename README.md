@@ -1,16 +1,197 @@
 # Life Dashboard
 
-A single-screen morning brief: the day's lectures and blocks, what's due, mail
-grouped into things that want a reply, and where the money sits.
+A single-screen morning brief: the day's lectures and blocks hour by hour,
+what's due, unread mail grouped by sender, and the course materials sitting on
+your Desktop.
 
-**No source is connected yet.** Every screen renders an honest empty state
-naming what it's waiting on. Nothing on screen is invented — the only live
-values are the ones the clock alone can answer (date, greeting, time).
+**Live:** https://alexbabcock212-ui.github.io/
 
 Built from the `Life Dashboard v2` Claude Design prototype on the **Industry**
 design system, and installable to a phone home screen.
 
-**Live:** https://alexbabcock212-ui.github.io/
+## How it fits together
+
+```
+  iPhone (PWA, GitHub Pages)          Cloudflare Worker             Google
+  ─────────────────────────           ─────────────────             ──────
+  device key in localStorage  ──────▶ holds the refresh token ────▶ Calendar
+  fortnight of data cached            fetches all three feeds       Tasks
+  shapes it into the screens          returns one JSON payload      Gmail
+           ▲
+           │  baked in at deploy time
+     ~/Desktop/Courses  (npm run scan)
+```
+
+Three things are worth understanding before changing any of it.
+
+**Why there is a back end at all.** Google's browser-only token flow issues *no
+refresh token* by design — access tokens last about an hour and renewing one
+needs a tap. That is unfixable in the browser. The Worker exists solely to be a
+place where a client secret and a long-lived refresh token can live, which turns
+signing in to Google into something that happened once, in the past.
+
+**What the phone holds.** One opaque device key, installed once by opening the
+site with `#key=…` on the end of the URL. It is stored in `localStorage` and
+never asked for again. There is no Google sign-in in the app.
+
+**Why the Desktop scan is separate.** A web page cannot read a filesystem, and
+the Worker runs in a datacentre. So course materials are scanned on the Mac at
+deploy time and baked into the bundle — a snapshot, and the Courses screen says
+so and dates it.
+
+## Setting it up
+
+Roughly twenty minutes, once.
+
+### 1. Google Cloud Console
+
+In [console.cloud.google.com](https://console.cloud.google.com/), on the project
+holding the existing OAuth client:
+
+1. **Enable the APIs** — Google Calendar API, Google Tasks API, Gmail API.
+2. **OAuth consent screen → Data access**, add three read-only scopes:
+   `calendar.readonly`, `tasks.readonly`, `gmail.readonly`.
+3. **Set publishing status to "In production".** This one matters more than it
+   looks: while the app is in *Testing*, Google expires every refresh token
+   after **seven days**, which would put the sign-in back exactly where this
+   design set out to remove it. In production it does not expire. The app stays
+   unverified, so you will see an "unverified app" interstitial once during
+   step 3 below — *Advanced → Go to … (unsafe)* — because you are the developer
+   and the only user.
+4. Keep the **client ID** and **client secret** to hand.
+
+### 2. The Worker
+
+```bash
+cd worker
+npm install
+npx wrangler login
+npx wrangler deploy          # prints https://life-dashboard-api.<you>.workers.dev
+```
+
+Back in Google Cloud Console, add that origin's callback as an **Authorized
+redirect URI** on the OAuth client:
+
+```
+https://life-dashboard-api.<you>.workers.dev/auth/callback
+```
+
+Then mint two secrets of your own and set all four:
+
+```bash
+openssl rand -hex 32         # → DASHBOARD_TOKEN, the phone's key
+openssl rand -hex 32         # → SETUP_TOKEN, gates /auth/start
+
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+npx wrangler secret put DASHBOARD_TOKEN
+npx wrangler secret put SETUP_TOKEN
+```
+
+### 3. The one and only Google sign-in
+
+Open, in a browser:
+
+```
+https://life-dashboard-api.<you>.workers.dev/auth/start?key=<SETUP_TOKEN>
+```
+
+Approve the three scopes. The callback page prints a refresh token. Store it:
+
+```bash
+npx wrangler secret put GOOGLE_REFRESH_TOKEN
+```
+
+Secrets take effect immediately; no redeploy needed. Check it works:
+
+```bash
+curl -H "Authorization: Bearer <DASHBOARD_TOKEN>" \
+  https://life-dashboard-api.<you>.workers.dev/api/dashboard | head -c 400
+```
+
+### 4. The site
+
+```bash
+cd ..
+echo 'VITE_API_BASE=https://life-dashboard-api.<you>.workers.dev' > .env
+npm run scan      # reads ~/Desktop/Courses
+npm run deploy
+```
+
+### 5. The phone
+
+Open once, with the key on the end:
+
+```
+https://alexbabcock212-ui.github.io/#key=<DASHBOARD_TOKEN>
+```
+
+The fragment is consumed and stripped from the URL immediately, so it does not
+linger in history or in a screenshot. Then Share → **Add to Home Screen**.
+
+That is the last time anything asks you for anything.
+
+## The 6:45 rule
+
+The brief is meant to be *correct when you read it in the morning*, which is a
+slightly different promise from "fetched at 06:45:00". Two mechanisms:
+
+- If the app is open or backgrounded at 6:45, a timer fires and it refetches.
+- However you arrive at it later — cold launch, app switcher, tab focus —
+  anything last read *before* today's 6:45 counts as stale and is refetched
+  before you see it. During the day a read older than ten minutes is refreshed
+  the same way, and `Refresh now` in the Today footer forces one.
+
+**The honest limit:** iOS gives a home-screen web app no way to wake itself
+while it is closed — Safari supports neither Periodic Background Sync nor
+Background Fetch. Nothing runs at 6:45 on a locked phone. What is guaranteed is
+that the first look of the day is never yesterday's data, and the fetch takes
+about a second.
+
+Both boundaries live in `src/data/morning.ts` and are covered by `npm run check`.
+
+## Courses
+
+One folder per course in `~/Desktop/Courses`, named the way the course appears
+on your timetable — `Econ 2122`, `Mos 2310`. That is the same pattern the app
+looks for in calendar event titles, which is how a folder and a class event get
+matched to each other (`codeKey` in `src/data/sources/calendar.ts` forgives case
+and spacing, nothing else).
+
+Subfolders become sections, ordered the way a term actually runs — `Course
+Info`, then weeks and units in sequence, then quizzes, midterms, the final.
+`~/Desktop/Courses/README.md` has the full convention.
+
+A course shows up if it is on the calendar, or has a folder, or both. Before
+term starts that means the Courses screen works while every other screen is
+still empty.
+
+```bash
+npm run scan                      # ~/Desktop/Courses
+COURSES_DIR=… npm run scan        # somewhere else
+COURSES_PRIVATE=1 npm run scan    # sections and counts, no filenames
+```
+
+## What is public and what is not
+
+The Pages repo is public, and that shaped several decisions:
+
+| Thing | Where it lives | Public? |
+| --- | --- | --- |
+| Google refresh token, client secret | Worker secrets | no |
+| Calendar, task and mail content | fetched per request, cached on device | no |
+| Device key | your phone's `localStorage` | no |
+| Worker URL (`VITE_API_BASE`) | the bundle | yes — an address, not a credential |
+| **Course filenames** | the bundle, via `courses.generated.json` | **yes** |
+
+That last row is the one to decide about. File *contents* never leave the Mac,
+but the names of everything in your course folders ship in a world-readable
+bundle. `COURSES_PRIVATE=1 npm run scan` records section names and file counts
+only, which the Courses screen renders as a row of section chips instead of a
+file list.
+
+To rotate the device key: `npx wrangler secret put DASHBOARD_TOKEN`, then open
+the site once with the new `#key=…`.
 
 ## Running it
 
@@ -19,37 +200,72 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # typecheck + production bundle into dist/
 npm run lint
-npm run deploy   # build, then publish to the gh-pages branch
+npm run check    # data-shaping checks, then an SSR render of every tab
+npm run scan     # read ~/Desktop/Courses into the bundle
+npm run deploy   # scan, build, publish to the gh-pages branch
 ```
+
+`npm run check` is the only automated verification there is — there is no
+browser in this environment. It covers course-code parsing, the timeline and
+hour allocation, folder-to-calendar matching, section ordering, due-date
+handling (including the timezone trap below), mail clustering, and the 6:45
+boundaries; then it renders all four tabs and the setup sheet to a string.
 
 ## Deploying
 
 GitHub Pages serves the **`gh-pages`** branch, which holds only build output;
-`main` holds only source. `npm run deploy` builds and force-pushes the one to
-the other, and Pages rebuilds itself within about half a minute.
+`main` holds only source. `npm run deploy` scans the Desktop, builds, and
+force-pushes the one to the other; Pages rebuilds itself within about half a
+minute. It refuses to run if `VITE_API_BASE` is empty, since that failure would
+otherwise only surface on the phone.
+
+The Worker deploys separately, and only when `worker/` changes:
+
+```bash
+cd worker && npx wrangler deploy
+```
 
 There is no CI workflow, because publishing one needs a `workflow` scope this
-repo's token doesn't carry. To switch to push-to-deploy instead, run
+repo's token doesn't carry. To switch to push-to-deploy, run
 `gh auth refresh -s workflow` and add a standard Pages Actions workflow.
 
 ## Layout
 
 ```
 src/
-  App.tsx                 tab + completion state, the device frame
-  components/             StatusBar, TabBar, Corners (blueprint registration marks)
-  views/                  one file per tab: Today, Courses, Due, Mail, Money
+  App.tsx                 tab + completion state, the device frame, the setup sheet
+  components/             StatusBar, TabBar, KeyGate, Corners, EmptyState
+  views/                  one file per tab: Today, Courses, Due, Mail
   data/
     types.ts              the shapes every view reads
-    dashboard.ts          the dataset + clock-derived values — the seam for real data
+    payload.ts            the wire format between Worker and app
+    api.ts                the single call to the Worker
+    deviceKey.ts          the one secret this device holds
+    cache.ts              last payload, kept for a fortnight
+    morning.ts            the 6:45 rule
+    useDashboard.ts       fetch, cache, refresh policy, shaping into Dashboard
+    courses.ts            the baked Desktop scan
+    courses.generated.json    written by `npm run scan` — do not edit
     completion.ts         ticked-off deadlines, persisted per day
+    sources/              raw Google shapes → the views' shapes
+      calendar.ts           course codes, timeline, hour allocation
+      tasks.ts              tasks + all-day events → deadlines
+      mail.ts               unread mail → sender clusters
+      courses.ts            calendar × Desktop folders → the course list
   styles/
     industry.css          the design system, near-verbatim from the Design project
     fonts.css             self-hosted Barlow (see below)
     app.css               screen styles, built only from Industry's tokens
-icons/                    icon sources (SVG) — see "Icons"
-scripts/make-icons.mjs    rasterises them; run manually, output is committed
-scripts/deploy.sh         build + publish to the gh-pages branch
+worker/
+  src/index.ts            routing, CORS, the device-key check, the setup flow
+  src/google.ts           token refresh and the three feeds
+  wrangler.toml           name and allowed origins; everything else is a secret
+scripts/
+  scan-courses.ts         the Desktop scan
+  check.ts                data-shaping checks
+  render.tsx              SSR render of every tab
+  deploy.sh               scan + build + publish to gh-pages
+  make-icons.mjs          rasterises the icon sources; run manually
 ```
 
 ### Design system
@@ -61,29 +277,30 @@ because a CDN font request means the app loses its entire typography the moment
 the phone is offline. The same families are self-hosted in `fonts.css` instead.
 
 Everything in `app.css` refers to Industry's tokens (`--color-accent-900`,
-`--space-8`, `--shadow-lg`, …) rather than to literal colours, so re-tuning the
-system propagates here for free. The only literal hexes in the project are
-`theme_color` and `background_color` in the manifest, which cannot read CSS
-custom properties.
+`--space-8`, `--shadow-lg`, …) rather than to literal colours. The only literal
+hexes in the project are `theme_color` and `background_color` in the manifest,
+which cannot read CSS custom properties.
 
 ### Installing it on a phone
 
 The app is a PWA: open the URL, then Share → **Add to Home Screen**. It launches
-full-screen with no browser chrome and works with no signal — the service worker
-precaches the bundle *and the fonts*.
+full-screen with no browser chrome, and the last fortnight of data opens with no
+signal — the service worker precaches the bundle *and the fonts*.
 
 Handset-specific handling worth knowing about, since none of it is visible on a
 desktop:
 
 - `viewport-fit=cover` in `index.html` is what makes `env(safe-area-inset-*)`
   return real values. Without it, everything below silently does nothing.
-- The simulated `6:02 AM · WIFI · 84%` status bar belongs to the desktop bezel
-  only. On a narrow screen or in standalone it's swapped for a spacer painted
-  behind the device's own status bar (`.ld-safe-top`).
+- The simulated status bar belongs to the desktop bezel only. On a narrow screen
+  or in standalone it's swapped for a spacer painted behind the device's own
+  status bar (`.ld-safe-top`).
 - The tab bar pads itself by `env(safe-area-inset-bottom)` to clear the home
   indicator.
 - All `:hover` rules sit behind `@media (hover: hover)`, or iOS leaves the last
   tapped tab highlighted forever.
+- The device-key field is `font-size: 16px` exactly, or iOS zooms the whole
+  frame when it takes focus.
 
 ### Icons
 
@@ -96,37 +313,31 @@ dependency, since icons change roughly never. To regenerate:
 npm i -D sharp && node scripts/make-icons.mjs && npm un sharp
 ```
 
-### Wiring real data
+## Decisions worth knowing
 
-The views never construct content — they read the single `dashboard` object in
-`src/data/dashboard.ts`, typed by `Dashboard` in `src/data/types.ts`. Every
-collection on it starts empty and every source reports `not-connected`.
-
-Connecting a source means two things and nothing else: set its `SourceState` to
-`'ready'`, and fill its collections with the existing shapes. Views already
-branch on both, so no view changes.
-
-What each source can and can't do here matters, because GitHub Pages is a static
-host with no server and nowhere to keep a secret:
-
-| Source | Reachable? | Notes |
-| --- | --- | --- |
-| Google Calendar / Tasks / Gmail | yes | Browser-only OAuth, no client secret |
-| Weather | yes | Open-Meteo needs no key and allows browser calls |
-| Canvas | no | Sends no `Access-Control-Allow-Origin`; browsers refuse outright |
-| Brokerage | no | No browser-callable API; Plaid needs a server-side secret |
-
-Money is therefore entered by hand and kept on the device. Canvas would need a
-small proxy (a Cloudflare Worker alongside this site) to be reachable at all.
-
-## Notes on the port
-
-- The prototype's content was a different person's life — a Georgia Tech CS
-  student. It's been removed rather than retuned: an app that presents invented
-  data as yours is worse than one that shows nothing.
-- The prototype's hard-coded segment widths for *Where the 16 hours go* are
-  computed from each segment's hours instead, so the bar and its legend can't
-  drift apart.
-- Ticked-off deadlines persist across launches, scoped to the day — the brief is
-  rebuilt each morning, so yesterday's ticks don't carry into it.
+- **Nothing is invented.** Where a source cannot know something — a lecture's
+  topic, how far through the term a course is — the field stays empty and the
+  view hides it rather than drawing a plausible-looking bar. `progress` is
+  always 0 for this reason: a two-week fetch window cannot know a term's length.
+- **Mail is not judged.** The design has a notion of a thread that "wants a
+  reply", and no amount of Gmail *metadata* can tell you that; reading bodies to
+  guess would be both a larger permission and a worse answer. So the screen
+  emphasises what is checkable — mail that arrived today — and tags a cluster
+  with a course code when the subject line supplies one.
+- **All-day calendar entries are deadlines, not blocks.** They have no place on
+  an hour-by-hour timeline and no duration to count toward the day, but they are
+  how most due dates actually arrive, so they are folded into the DUE screen
+  beside Google Tasks.
+- **Dates are parsed as local, deliberately.** `new Date('2026-09-03')` is UTC
+  midnight, which is the *2nd* of September in Toronto. Google Tasks and all-day
+  events both hand over bare calendar dates, so `localDate` splits the parts and
+  uses the local constructor. There is a check pinning this.
+- **One source failing does not blank the board.** The Worker returns each feed
+  with its own `ok`, and the app shows a note beside the footer rather than an
+  error screen when, say, Gmail is down but the timetable is not.
+- **The cache is the opening screen.** The app renders the last payload
+  immediately and corrects it over the network, rather than showing a spinner.
+- Ticked-off deadlines persist across launches, scoped to the day.
 - Tab switches reset the scroll position; each tab is its own screen.
+- The money screen was removed: no brokerage exposes an API a browser can call,
+  so it could only ever have been hand-entered, which is a worse spreadsheet.

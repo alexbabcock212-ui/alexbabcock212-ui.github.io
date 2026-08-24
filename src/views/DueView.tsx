@@ -5,9 +5,11 @@ interface Props {
   dashboard: Dashboard
   done: Record<string, boolean>
   onToggle: (id: string) => void
+  needsKey: boolean
+  onSetUp: () => void
 }
 
-export default function DueView({ dashboard, done, onToggle }: Props) {
+export default function DueView({ dashboard, done, onToggle, needsKey, onSetUp }: Props) {
   const { tasks, deadlines } = dashboard
   const open = deadlines.filter((d) => !done[d.id]).length
 
@@ -24,12 +26,13 @@ export default function DueView({ dashboard, done, onToggle }: Props) {
       {deadlines.length === 0 ? (
         <EmptyState
           kicker="TASKS"
-          title={tasks === 'ready' ? 'Nothing due' : 'Not connected'}
+          title={tasks === 'ready' ? 'Nothing due' : 'Not set up'}
           note={
             tasks === 'ready'
-              ? 'Nothing lands in the next two weeks.'
-              : 'Connect Google and anything due in the next two weeks collects here.'
+              ? 'Nothing in Google Tasks, and no all-day calendar entries, land in the next two weeks.'
+              : 'Set this device up and your Google Tasks — plus any all-day calendar entries, which is how most due dates arrive — collect here.'
           }
+          action={needsKey ? { label: 'SET UP THIS DEVICE', onClick: onSetUp } : undefined}
         />
       ) : (
         <ul className="ld-deadlines">
