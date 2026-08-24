@@ -108,8 +108,16 @@ export interface Payload {
   mail: Feed<RawMessage>
 }
 
-/** How far ahead the calendar and task windows reach. */
-export const HORIZON_DAYS = 14
+/**
+ * How far ahead the calendar fetch reaches.
+ *
+ * Wider than the two weeks the DUE screen shows, and deliberately so: this
+ * window is also what discovers *which courses exist*. A term whose first
+ * lecture is three weeks out would otherwise leave the Courses screen empty
+ * right when a timetable is most worth looking at. Screens that mean "the next
+ * fortnight" trim it themselves — see HORIZON_DAYS in src/data/sources/tasks.ts.
+ */
+export const HORIZON_DAYS = 35
 
 /* ── helpers ───────────────────────────────────────────────────────────── */
 
@@ -141,6 +149,42 @@ const startOfDay = (d: Date) => {
 
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000)
 
+/* ── which calendars exist ─────────────────────────────────────────────── */
+
+export interface CalendarRef {
+  id: string
+  summary: string
+  primary: boolean
+  /** Whether the user has this calendar ticked on in the Google UI. */
+  selected: boolean
+  /** Google's own holiday and birthday feeds — noise for a timetable. */
+  generated: boolean
+}
+
+/** Every calendar on the account, annotated enough to decide what to read. */
+export async function fetchCalendarList(token: string): Promise<CalendarRef[]> {
+  const body = await api<{
+    items?: {
+      id: string
+      summary?: string
+      primary?: boolean
+      selected?: boolean
+      accessRole?: string
+    }[]
+  }>('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250', token)
+
+  return (body.items ?? []).map((c) => ({
+    id: c.id,
+    summary: c.summary ?? c.id,
+    primary: Boolean(c.primary),
+    selected: c.selected !== false,
+    generated:
+      c.id.endsWith('#holiday@group.v.calendar.google.com') ||
+      c.id.endsWith('#contacts@group.v.calendar.google.com') ||
+      c.id.endsWith('#weeknum@group.v.calendar.google.com'),
+  }))
+}
+
 /* ── calendar ──────────────────────────────────────────────────────────── */
 
 interface ApiEvent {
@@ -169,7 +213,8 @@ export async function fetchCalendar(
     // Expand recurring events into individual occurrences.
     singleEvents: 'true',
     orderBy: 'startTime',
-    maxResults: '250',
+    // Room for a full term's worth of recurring classes in the wider window.
+    maxResults: '750',
   })
 
   const body = await api<{ items?: ApiEvent[] }>(

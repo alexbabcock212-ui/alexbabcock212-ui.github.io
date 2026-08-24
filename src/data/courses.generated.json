@@ -1,6 +1,54 @@
 {
-  "scannedAt": 1787602537777,
+  "scannedAt": 1787603287489,
   "root": "~/Desktop/Courses",
   "redacted": false,
-  "courses": []
+  "courses": [
+    {
+      "code": "Classics 2440",
+      "folder": "Classics 2440",
+      "sections": [],
+      "materials": [],
+      "fileCount": 0,
+      "updated": null
+    },
+    {
+      "code": "Econ 2122",
+      "folder": "Econ 2122",
+      "sections": [],
+      "materials": [
+        {
+          "name": "1021A001COFall24 copy.pdf",
+          "section": "",
+          "kind": "pdf",
+          "modified": 1755552393214
+        }
+      ],
+      "fileCount": 1,
+      "updated": 1755552393214
+    },
+    {
+      "code": "Econ 2150",
+      "folder": "Econ 2150",
+      "sections": [],
+      "materials": [],
+      "fileCount": 0,
+      "updated": null
+    },
+    {
+      "code": "History 2121",
+      "folder": "History 2121",
+      "sections": [],
+      "materials": [],
+      "fileCount": 0,
+      "updated": null
+    },
+    {
+      "code": "Mos 2310",
+      "folder": "Mos 2310",
+      "sections": [],
+      "materials": [],
+      "fileCount": 0,
+      "updated": null
+    }
+  ]
 }

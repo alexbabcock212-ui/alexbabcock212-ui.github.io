@@ -13,7 +13,7 @@
  * a chat window; a page that displays a credential is a page that invites it.
  */
 import type { Env } from './env'
-import { fetchAll } from './google'
+import { accessToken, fetchAll, fetchCalendarList } from './google'
 
 /** How long a fetched payload may be reused. `?fresh=1` skips it. */
 const CACHE_SECONDS = 120
@@ -123,6 +123,20 @@ export default {
     switch (url.pathname) {
       case '/api/dashboard':
         return dashboard(request, url, env, cors)
+
+      // Diagnostic: which calendars exist, and which ones a read would cover.
+      // Gated on the device key like everything else — calendar names are
+      // personal data.
+      case '/api/calendars': {
+        if (!(await secretsMatch(bearer(request), env.DASHBOARD_TOKEN))) {
+          return json({ error: 'Unauthorized' }, 401, cors)
+        }
+        try {
+          return json({ calendars: await fetchCalendarList(await accessToken(env)) }, 200, cors)
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : String(e) }, 502, cors)
+        }
+      }
 
       case '/health':
         return json({ ok: true }, 200, cors)
