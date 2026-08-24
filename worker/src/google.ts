@@ -62,6 +62,8 @@ export interface RawEvent {
   id: string
   title: string
   location: string
+  /** The calendar it came from. Names a course when the calendar names one. */
+  calendar: string
   /** ISO 8601. Timed events only — see the filter in `fetchCalendar`. */
   start: string
   end: string
@@ -70,6 +72,7 @@ export interface RawEvent {
 export interface RawAllDay {
   id: string
   title: string
+  calendar: string
   /** `YYYY-MM-DD`, the calendar's own date form for all-day entries. */
   date: string
 }
@@ -118,6 +121,18 @@ export interface Payload {
  * fortnight" trim it themselves — see HORIZON_DAYS in src/data/sources/tasks.ts.
  */
 export const HORIZON_DAYS = 35
+
+/**
+ * Cloudflare allows 50 subrequests per request on this plan, and one dashboard
+ * read spends them fast: a token refresh, a calendar list, one per calendar,
+ * one per task list, and — the expensive part — one per Gmail message.
+ * Exceeding the limit does not degrade, it throws, which is how moving from one
+ * calendar to eight turned a working Worker into HTTP 500.
+ *
+ * Worst case with the caps below:
+ *   1 + 1 + MAX_CALENDARS + 1 + 3 + 1 + MAIL_LIMIT  =  44
+ */
+export const MAX_CALENDARS = 12
 
 /* ── helpers ───────────────────────────────────────────────────────────── */
 
@@ -196,16 +211,20 @@ interface ApiEvent {
   end?: { dateTime?: string; date?: string }
 }
 
+/** Ids are only unique within a calendar; the same event can appear in two. */
+const uid = (calendarId: string, eventId: string) => `${calendarId}:${eventId}`
+
 /**
- * Timed events and all-day entries, kept apart.
+ * Timed events and all-day entries from one calendar, kept apart.
  *
  * They answer different questions: a timed event belongs on the hour-by-hour
  * timeline, while an all-day entry is almost always a due date, so it belongs
  * on the DUE screen next to the tasks.
  */
-export async function fetchCalendar(
+async function fetchOneCalendar(
   token: string,
   now: Date,
+  ref: CalendarRef,
 ): Promise<{ timed: RawEvent[]; allDay: RawAllDay[] }> {
   const params = new URLSearchParams({
     timeMin: startOfDay(now).toISOString(),
@@ -218,7 +237,7 @@ export async function fetchCalendar(
   })
 
   const body = await api<{ items?: ApiEvent[] }>(
-    `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(ref.id)}/events?${params}`,
     token,
   )
 
@@ -228,20 +247,73 @@ export async function fetchCalendar(
     timed: live
       .filter((e) => e.start?.dateTime && e.end?.dateTime)
       .map((e) => ({
-        id: e.id,
+        id: uid(ref.id, e.id),
         title: e.summary?.trim() || '(no title)',
         location: e.location?.trim() ?? '',
         start: e.start!.dateTime!,
         end: e.end!.dateTime!,
+        calendar: ref.summary,
       })),
     allDay: live
       .filter((e) => e.start?.date && !e.start.dateTime)
       .map((e) => ({
-        id: e.id,
+        id: uid(ref.id, e.id),
         title: e.summary?.trim() || '(no title)',
         date: e.start!.date!,
+        calendar: ref.summary,
       })),
   }
+}
+
+/** Names the user does not want on the dashboard, from `CALENDAR_EXCLUDE`. */
+const excluded = (env: Env) =>
+  new Set(
+    env.CALENDAR_EXCLUDE?.split(',')
+      .map((n) => n.trim().toLowerCase())
+      .filter(Boolean) ?? [],
+  )
+
+/**
+ * Every calendar worth reading, merged.
+ *
+ * Reading only `primary` was the original design and it was wrong for how this
+ * account is organised: each course has its own calendar, so `primary` held
+ * nothing but personal appointments and the Courses screen was permanently
+ * empty. Since a course calendar is *named* for its course, the calendar is now
+ * also the most reliable way to know which course an event belongs to — far
+ * better than reading the event's title and hoping.
+ *
+ * A denylist rather than an allowlist, so adding a sixth course next term needs
+ * no configuration at all.
+ */
+export async function fetchCalendar(
+  token: string,
+  now: Date,
+  env: Env,
+): Promise<{ timed: RawEvent[]; allDay: RawAllDay[] }> {
+  const skip = excluded(env)
+  const all = await fetchCalendarList(token)
+  const wanted = all
+    .filter((c) => !c.generated && !skip.has(c.summary.trim().toLowerCase()))
+    // Primary first, so that if the cap ever bites it is the least important
+    // calendars that get dropped rather than an arbitrary set.
+    .sort((a, b) => Number(b.primary) - Number(a.primary))
+    .slice(0, MAX_CALENDARS)
+
+  const results = await pooled(wanted, 5, async (ref) => {
+    try {
+      return await fetchOneCalendar(token, now, ref)
+    } catch {
+      // One unreadable calendar must not cost the other seven — a shared
+      // calendar losing access should not empty the timetable.
+      return { timed: [] as RawEvent[], allDay: [] as RawAllDay[] }
+    }
+  })
+
+  const timed = results.flatMap((r) => r.timed).sort((a, b) => a.start.localeCompare(b.start))
+  const allDay = results.flatMap((r) => r.allDay).sort((a, b) => a.date.localeCompare(b.date))
+
+  return { timed, allDay }
 }
 
 /* ── tasks ─────────────────────────────────────────────────────────────── */
@@ -315,7 +387,7 @@ interface ApiMessage {
  * saying "no message bodies" and having to qualify it.
  */
 const MAIL_QUERY = 'is:unread in:inbox newer_than:14d'
-const MAIL_LIMIT = 40
+const MAIL_LIMIT = 25
 
 /** `Jane Doe <jane@x.com>` → name and address, either of which may be absent. */
 function parseFrom(value: string): { from: string; address: string } {
@@ -396,7 +468,7 @@ export async function fetchAll(env: Env, now = new Date()): Promise<Payload> {
   }
 
   const [calendar, tasks, mail] = await Promise.all([
-    fetchCalendar(token, now).then(
+    fetchCalendar(token, now, env).then(
       (r) => ({ timed: r.timed, allDay: r.allDay, error: undefined as string | undefined }),
       (e) => ({ timed: [] as RawEvent[], allDay: [] as RawAllDay[], error: message(e) }),
     ),

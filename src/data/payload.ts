@@ -13,6 +13,8 @@ export interface RawEvent {
   id: string
   title: string
   location: string
+  /** The calendar it came from. Names a course when the calendar names one. */
+  calendar: string
   /** ISO 8601 with an offset. Timed events only. */
   start: string
   end: string
@@ -21,6 +23,7 @@ export interface RawEvent {
 export interface RawAllDay {
   id: string
   title: string
+  calendar: string
   /** `YYYY-MM-DD` — a calendar date, with no time and no zone. */
   date: string
 }

@@ -15,4 +15,7 @@ export interface Env {
   DASHBOARD_TOKEN: string
   /** Comma-separated origins allowed to call the API. */
   ALLOWED_ORIGINS: string
+  /** Comma-separated calendar names to skip. Google's own feeds are always
+   *  skipped; this is for the ones only you know are noise. */
+  CALENDAR_EXCLUDE?: string
 }

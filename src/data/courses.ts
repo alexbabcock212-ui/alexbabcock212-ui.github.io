@@ -7,12 +7,15 @@
  */
 import generated from './courses.generated.json'
 import type { CourseFolder } from './types'
+import type { Term } from './sources/term'
 
 interface Scan {
   scannedAt: number
   root: string
   /** True when the scan recorded section names and counts but no filenames. */
   redacted: boolean
+  /** Term dates, needed to answer "which week is it". */
+  term: Term | null
   courses: CourseFolder[]
 }
 
@@ -23,3 +26,4 @@ export const courseFolders: CourseFolder[] = scan.courses ?? []
 export const scannedAt: number | null = scan.scannedAt || null
 export const scanRoot: string = scan.root ?? '~/Desktop/Courses'
 export const scanRedacted: boolean = scan.redacted ?? false
+export const term: Term | null = scan.term ?? null

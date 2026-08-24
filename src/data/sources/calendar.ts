@@ -11,10 +11,15 @@ import type { AllocSegment, Chip, Slot } from '../types'
 const DAY_START_HOUR = 8
 const DAY_END_HOUR = 24
 
+/** After this, a non-class block is what the evening is *for*. */
+const EVENING_HOUR = 17
+
 export interface CalendarEvent {
   id: string
   title: string
   location: string
+  /** The calendar this came from. */
+  calendar: string
   start: Date
   end: Date
   /** Set when the title carries a course code, e.g. `Econ 2122`. */
@@ -39,6 +44,25 @@ const COURSE_RE = /(?:^|[^A-Za-z])([A-Z][A-Za-z&.'-]{1,19})\s+(\d{4})([A-Za-z]?)
 
 /** Years look exactly like catalogue numbers, so nearby ones are not courses. */
 const YEAR_SPAN = 6
+
+/**
+ * Which course an event belongs to.
+ *
+ * The calendar name wins over the event title, because on this account each
+ * course has its own calendar and the calendar is therefore a *statement* of
+ * which course an event is, where a title is only evidence. It also rescues
+ * events whose titles carry no code at all — a lecture called "Midterm review"
+ * on the Econ 2122 calendar is still Econ 2122.
+ *
+ * The title remains the fallback, for a class sitting on a personal calendar.
+ */
+export function courseOf(
+  calendarName: string,
+  title: string,
+  now: Date = new Date(),
+): CalendarEvent['course'] {
+  return parseCourse(calendarName, now) ?? parseCourse(title, now)
+}
 
 export function parseCourse(title: string, now: Date = new Date()): CalendarEvent['course'] {
   const m = COURSE_RE.exec(title)
@@ -72,8 +96,6 @@ export function timeLabel(d: Date): string {
   return `${h}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-const hoursBetween = (a: Date, b: Date) => (b.getTime() - a.getTime()) / 3_600_000
-
 const round = (n: number) => Math.round(n * 10) / 10
 
 export const isSameDay = (a: Date, b: Date) =>
@@ -82,18 +104,32 @@ export const isSameDay = (a: Date, b: Date) =>
 export const eventsOn = (events: CalendarEvent[], day: Date) =>
   events.filter((e) => isSameDay(e.start, day))
 
+/** What the syllabus says today's class is about, keyed by `codeKey`. */
+export interface TopicLookup {
+  get(code: string): { week: number; topic: string } | undefined
+}
+
 /**
  * Today's events as timeline slots.
  *
  * The day's first class takes the hero treatment, other classes the quieter
- * card, and anything in the evening that isn't a class takes the filled block.
+ * card, and the first evening block that isn't a class takes the filled one.
  * Everything else is a plain line.
+ *
+ * `topics` fills in `seq` and `facts`, which the design reserved for a syllabus
+ * from the beginning and which were empty until one existed.
  */
-export function toSchedule(events: CalendarEvent[]): Slot[] {
+export function toSchedule(events: CalendarEvent[], topics?: TopicLookup): Slot[] {
   const firstClass = events.find((e) => e.course)
+  // Exactly one evening block gets the filled treatment. Without this, a day
+  // ending with a bedtime marker at 23:30 gave the marker the same visual
+  // weight as the thing the evening was actually for.
+  const evening = events.find((e) => !e.course && e.start.getHours() >= EVENING_HOUR)
 
   return events.map((e): Slot => {
     const time = timeLabel(e.start)
+    const lecture = e.course ? topics?.get(codeKey(e.course.code)) : undefined
+    const seq = lecture ? `WEEK ${lecture.week}` : ''
 
     if (e.course && e === firstClass) {
       return {
@@ -101,9 +137,9 @@ export function toSchedule(events: CalendarEvent[]): Slot[] {
         id: e.id,
         time,
         where: e.location || e.course.code,
-        seq: '',
+        seq,
         title: e.title,
-        facts: [],
+        facts: lecture ? [{ label: 'TOPIC', text: lecture.topic }] : [],
       }
     }
     if (e.course) {
@@ -112,12 +148,12 @@ export function toSchedule(events: CalendarEvent[]): Slot[] {
         id: e.id,
         time,
         where: e.location || e.course.code,
-        seq: '',
+        seq,
         title: e.title,
-        note: '',
+        note: lecture?.topic ?? '',
       }
     }
-    if (e.start.getHours() >= 17) {
+    if (e === evening) {
       return {
         kind: 'highlight',
         id: e.id,
@@ -131,12 +167,33 @@ export function toSchedule(events: CalendarEvent[]): Slot[] {
   })
 }
 
+/**
+ * How much of an event falls inside the measured day.
+ *
+ * Counting an event's full duration was wrong in both directions: a 07:45 alarm
+ * contributed a quarter hour to a window that opens at 08:00, and anything
+ * running past midnight was credited time the window never had. Clipping keeps
+ * the segments and the "unclaimed" remainder describing the same 16 hours.
+ */
+function hoursInsideDay(e: CalendarEvent): number {
+  const open = new Date(e.start)
+  open.setHours(DAY_START_HOUR, 0, 0, 0)
+  const close = new Date(e.start)
+  close.setHours(0, 0, 0, 0)
+  close.setDate(close.getDate() + 1)
+  if (DAY_END_HOUR < 24) close.setHours(DAY_END_HOUR, 0, 0, 0)
+
+  const from = Math.max(e.start.getTime(), open.getTime())
+  const to = Math.min(e.end.getTime(), close.getTime())
+  return Math.max(0, (to - from) / 3_600_000)
+}
+
 /** Hours spent in class, in everything else, and left over. */
 export function toAllocation(events: CalendarEvent[]): AllocSegment[] {
   let inClass = 0
   let elsewhere = 0
   for (const e of events) {
-    const hours = hoursBetween(e.start, e.end)
+    const hours = hoursInsideDay(e)
     if (e.course) inClass += hours
     else elsewhere += hours
   }

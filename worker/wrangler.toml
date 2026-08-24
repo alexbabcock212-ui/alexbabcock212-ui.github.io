@@ -12,3 +12,8 @@ compatibility_date = "2026-08-01"
 #   npx wrangler secret put SETUP_TOKEN
 [vars]
 ALLOWED_ORIGINS = "https://alexbabcock212-ui.github.io,http://localhost:5173"
+
+# Calendars to leave out, by name. Google's holiday and birthday feeds are
+# skipped automatically; these are the ones only you can judge. Everything else
+# is included, so a new course calendar needs no change here.
+CALENDAR_EXCLUDE = "Adcom,PDUFA"

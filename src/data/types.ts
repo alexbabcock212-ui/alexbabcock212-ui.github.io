@@ -110,8 +110,18 @@ export interface Material {
   modified: number
 }
 
+/** One week of a course, as the syllabus describes it. */
+export interface Lecture {
+  /** 1-based week of term. */
+  week: number
+  topic: string
+}
+
+/** Where a course's lecture topics came from — the screen says so. */
+export type LecturesSource = 'file' | 'pdf' | 'none'
+
 /**
- * A course folder as `scripts/scan-courses.mjs` found it on the Desktop.
+ * A course folder as `scripts/scan-courses.ts` found it on the Desktop.
  *
  * Baked into the bundle at deploy time: a web page cannot read a filesystem,
  * so this is a snapshot taken on the Mac, not a live view.
@@ -126,6 +136,9 @@ export interface CourseFolder {
   fileCount: number
   /** Newest material's mtime, epoch ms; `null` when the folder is empty. */
   updated: number | null
+  /** Week-by-week topics, from lectures.tsv or a parsed syllabus. */
+  lectures: Lecture[]
+  lecturesSource: LecturesSource
 }
 
 export interface Course {
@@ -140,6 +153,10 @@ export interface Course {
   facts: { label: string; text: string }[]
   /** Desktop materials, when a folder matched this code. */
   folder: CourseFolder | null
+  /** The term's topics, week by week. Empty when no syllabus has been read. */
+  lectures: Lecture[]
+  /** Which week of term it is, or null outside the term. */
+  currentWeek: number | null
 }
 
 /* ── the whole board ───────────────────────────────────────────────────── */

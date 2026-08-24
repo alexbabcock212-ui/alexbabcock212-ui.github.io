@@ -136,19 +136,71 @@ Both boundaries live in `src/data/morning.ts` and are covered by `npm run check`
 
 ## Courses
 
-One folder per course in `~/Desktop/Courses`, named the way the course appears
-on your timetable — `Econ 2122`, `Mos 2310`. That is the same pattern the app
-looks for in calendar event titles, which is how a folder and a class event get
-matched to each other (`codeKey` in `src/data/sources/calendar.ts` forgives case
-and spacing, nothing else).
+### Where a course comes from
 
-Subfolders become sections, ordered the way a term actually runs — `Course
-Info`, then weeks and units in sequence, then quizzes, midterms, the final.
-`~/Desktop/Courses/README.md` has the full convention.
+Two independent sources, either of which is enough:
 
-A course shows up if it is on the calendar, or has a folder, or both. Before
-term starts that means the Courses screen works while every other screen is
-still empty.
+- **A calendar named for the course.** On this account each course has its own
+  Google calendar — `Econ 2122`, `Mos 2310` — and that is a far better signal
+  than reading event titles: a lecture called "Midterm review" on the Econ 2122
+  calendar is unambiguously Econ 2122. `courseOf` in
+  `src/data/sources/calendar.ts` takes the calendar name first and falls back to
+  the title, which still covers a class sitting on a personal calendar.
+- **A folder in `~/Desktop/Courses`,** named the same way. This is what fills the
+  Courses screen before term starts, when the calendar has nothing to say.
+
+Which calendars get read is a **denylist**, `CALENDAR_EXCLUDE` in
+`worker/wrangler.toml` — so next term's sixth course needs no configuration.
+Google's holiday and birthday feeds are always skipped.
+
+### Lecture topics
+
+Each course folder can hold a `lectures.tsv`:
+
+```
+1	Introduction
+2	The Economic Problem
+3	Demand and Supply
+```
+
+`npm run scan` writes one for you when it can. It looks for a course outline
+PDF, extracts the text, and parses the week-by-week schedule table that almost
+every syllabus has. On a real outline this got all thirteen weeks, correctly
+skipping the midterm and reading-week rows.
+
+**The file always wins on later scans.** That is the whole safety mechanism:
+syllabus layouts vary far too much to trust a parser outright, so the parse is
+only ever a *draft* written once for a human to correct. Fix a bad row and it
+stays fixed. Delete the file to let the parser try again.
+
+Topics are keyed by **week number, not date**, deliberately — a syllabus is often
+last year's, so the topics are right while the dates are a year out.
+
+### Term dates
+
+`~/Desktop/Courses/term.json` answers "which week is it", which nothing else can:
+
+```json
+{ "start": "2026-09-05", "end": "2026-12-05" }
+```
+
+The scan writes a guess from the syllabus's own first date, with the current year
+substituted. **Check it** — the whole Courses screen is off by however many weeks
+this is wrong.
+
+### Layout
+
+```
+~/Desktop/Courses/
+  term.json
+  Econ 2122/
+    lectures.tsv          <- topics, editable, wins over any parse
+    Course Info/          <- outline and syllabus first
+    Week 1/  Week 2/  Midterms/  Final/
+```
+
+Subfolders become sections, ordered the way a term runs. Anything deeper is
+flattened into its top-level section; loose files show under LOOSE.
 
 ```bash
 npm run scan                      # ~/Desktop/Courses
@@ -166,7 +218,7 @@ The Pages repo is public, and that shaped several decisions:
 | Calendar, task and mail content | fetched per request, cached on device | no |
 | Device key | your phone's `localStorage` | no |
 | Worker URL (`VITE_API_BASE`) | the bundle | yes — an address, not a credential |
-| **Course filenames** | the bundle, via `courses.generated.json` | **yes** |
+| **Course filenames and lecture topics** | the bundle, via `courses.generated.json` | **yes** |
 
 That last row is the one to decide about. File *contents* never leave the Mac,
 but the names of everything in your course folders ship in a world-readable
@@ -235,10 +287,11 @@ src/
     courses.generated.json    written by `npm run scan` — do not edit
     completion.ts         ticked-off deadlines, persisted per day
     sources/              raw Google shapes → the views' shapes
-      calendar.ts           course codes, timeline, hour allocation
+      calendar.ts           course identity, timeline, hour allocation
       tasks.ts              tasks + all-day events → deadlines
       mail.ts               unread mail → sender clusters
       courses.ts            calendar × Desktop folders → the course list
+      term.ts               which week of term it is
   styles/
     industry.css          the design system, near-verbatim from the Design project
     fonts.css             self-hosted Barlow (see below)
@@ -252,6 +305,7 @@ scripts/
   doctor.mjs              read-only diagnosis of the credential chain
   lib/setup-lib.mjs       shared by both, including the Google probe
   scan-courses.ts         the Desktop scan
+  lib/syllabus.mjs        PDF text → a week-by-week schedule
   check.ts                data-shaping checks
   render.tsx              SSR render of every tab
   deploy.sh               scan + build + publish to gh-pages
@@ -305,10 +359,17 @@ npm i -D sharp && node scripts/make-icons.mjs && npm un sharp
 
 ## Decisions worth knowing
 
-- **Nothing is invented.** Where a source cannot know something — a lecture's
-  topic, how far through the term a course is — the field stays empty and the
-  view hides it rather than drawing a plausible-looking bar. `progress` is
-  always 0 for this reason: a two-week fetch window cannot know a term's length.
+- **Nothing is invented.** Where a source cannot know something the field stays
+  empty and the view hides it rather than drawing a plausible-looking bar.
+  `progress` is always 0 for this reason; a syllabus gap produces no topic rather
+  than a guessed one; and a schedule row without a week number — a midterm, a
+  reading week — is skipped rather than assigned one, because inventing a number
+  there would misalign every week after it.
+- **The hour bar only counts hours the day has.** Events are clipped to the
+  08:00–24:00 window before being summed, so a 07:45 alarm contributes nothing
+  and a block running past midnight is credited only the part inside. Counting
+  whole durations against a 16-hour window let the segments and the "unclaimed"
+  remainder describe different days.
 - **Mail is not judged.** The design has a notion of a thread that "wants a
   reply", and no amount of Gmail *metadata* can tell you that; reading bodies to
   guess would be both a larger permission and a worse answer. So the screen

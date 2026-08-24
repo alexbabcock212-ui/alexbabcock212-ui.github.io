@@ -636,6 +636,55 @@ a:hover { color: var(--color-accent); }
   color: var(--color-accent-700);
 }
 
+/* What the course is covering right now. The one line on this screen worth
+   reading at a glance, so it gets the accent panel rather than a label. */
+.ld-course__now {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--color-accent-100, var(--color-neutral-200));
+  border-left: 2px solid var(--color-accent-900);
+}
+.ld-course--today .ld-course__now { background: var(--color-accent-200); }
+.ld-course__now-kicker {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--color-accent-700);
+}
+.ld-course__now-topic {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.25;
+  margin-top: 1px;
+}
+
+.ld-lectures { margin-top: 11px; }
+.ld-lecturelist { list-style: none; padding: 0; margin-top: 4px; }
+.ld-lec {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+  font-size: 12.5px;
+}
+.ld-lec:last-child { border-bottom: 0; }
+.ld-lec__week {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--color-neutral-600);
+  text-align: right;
+}
+/* The current week is the only row that needs finding in a list of thirteen. */
+.ld-lec--now .ld-lec__week { color: var(--color-bg); background: var(--color-accent-900); }
+.ld-lec--now .ld-lec__topic { font-weight: 600; }
+
 .ld-course__materials { margin-top: 10px; display: flex; flex-direction: column; gap: 11px; }
 .ld-course__sections { display: flex; flex-wrap: wrap; gap: 5px; }
 .ld-course__section-chip {

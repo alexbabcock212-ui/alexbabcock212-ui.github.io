@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, fetchPayload, isConfigured } from './api'
 import { clearCachedPayload, loadCachedPayload, saveCachedPayload } from './cache'
-import { courseFolders } from './courses'
+import { courseFolders, term } from './courses'
 import { adoptDeviceKey, clearDeviceKey, saveDeviceKey } from './deviceKey'
 import { isStale, scheduleMorning } from './morning'
 import type { Payload, RawEvent } from './payload'
-import { eventsOn, parseCourse, toAllocation, toChips, toLede, toSchedule } from './sources/calendar'
+import {
+  codeKey,
+  courseOf,
+  eventsOn,
+  toAllocation,
+  toChips,
+  toLede,
+  toSchedule,
+} from './sources/calendar'
 import type { CalendarEvent } from './sources/calendar'
 import { toCourses } from './sources/courses'
 import { toClusters } from './sources/mail'
@@ -20,9 +28,10 @@ function toEvents(raw: RawEvent[], now: Date): CalendarEvent[] {
       id: e.id,
       title: e.title,
       location: e.location,
+      calendar: e.calendar ?? '',
       start: new Date(e.start),
       end: new Date(e.end),
-      course: parseCourse(e.title, now),
+      course: courseOf(e.calendar ?? '', e.title, now),
     }))
     .sort((a, b) => a.start.getTime() - b.start.getTime())
 }
@@ -45,7 +54,7 @@ function emptyDashboard(now = new Date()): Dashboard {
     chips: [],
     deadlines: [],
     clusters: [],
-    courses: toCourses([], now, courseFolders),
+    courses: toCourses([], now, courseFolders, term),
     fetchedAt: null,
   }
 }
@@ -54,6 +63,16 @@ function derive(payload: Payload, now: Date): Dashboard {
   const events = toEvents(payload.calendar.items, now)
   const todays = eventsOn(events, now)
   const allocation = toAllocation(todays)
+  const courses = toCourses(events, now, courseFolders, term)
+
+  // Courses already resolved which week of term it is and what each course is
+  // covering; the timeline reads it back rather than recomputing.
+  const topics = new Map(
+    courses.flatMap((c) => {
+      const lecture = c.lectures.find((l) => l.week === c.currentWeek)
+      return lecture ? [[codeKey(c.code), lecture] as const] : []
+    }),
+  )
 
   return {
     calendar: payload.calendar.ok ? 'ready' : 'error',
@@ -61,13 +80,13 @@ function derive(payload: Payload, now: Date): Dashboard {
     mail: payload.mail.ok ? 'ready' : 'error',
 
     allocation,
-    schedule: toSchedule(todays),
+    schedule: toSchedule(todays, topics),
     chips: toChips(allocation, todays.filter((e) => e.course).length),
     lede: toLede(todays),
 
     deadlines: toDeadlines(payload.tasks.items, payload.allDay.items, now),
     clusters: toClusters(payload.mail.items, now),
-    courses: toCourses(events, now, courseFolders),
+    courses,
 
     fetchedAt: payload.fetchedAt || null,
   }

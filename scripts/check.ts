@@ -7,6 +7,7 @@
 import {
   parseCourse,
   codeKey,
+  courseOf,
   toAllocation,
   toChips,
   toLede,
@@ -17,6 +18,7 @@ import { sortSections, toCourses } from '../src/data/sources/courses'
 import { daysUntil, localDate, toDeadlines, whenLabel } from '../src/data/sources/tasks'
 import { toClusters } from '../src/data/sources/mail'
 import { isStale, lastMorning, nextMorning } from '../src/data/morning'
+import { currentWeek, topicForWeek } from '../src/data/sources/term'
 import { freshness } from '../src/data/dashboard'
 import type { CourseFolder } from '../src/data/types'
 
@@ -48,18 +50,33 @@ eq('capitalised + year', parseCourse('Reading Week 2026', NOW), null)
 eq('next year', parseCourse('Grad trip 2027', NOW), null)
 eq('a real course near a year is still lost', parseCourse('Econ 2026', NOW), null)
 
+console.log('— which course an event belongs to —')
+eq('the calendar names it', courseOf('Econ 2122', 'Midterm review', NOW)?.code, 'Econ 2122')
+eq('even when the title also names one', courseOf('Econ 2122', 'Mos 2310 makeup', NOW)?.code, 'Econ 2122')
+eq('the title is the fallback', courseOf('', 'Mos 2310 lecture', NOW)?.code, 'Mos 2310')
+eq('a personal calendar names nothing', courseOf('Sleep', 'Wake Up', NOW), null)
+eq('nor does an email address', courseOf('alex@gmail.com', 'Haircut', NOW), null)
+
 console.log('— matching a folder to a calendar event —')
 eq('case and spacing forgiven', codeKey('econ  2122'), codeKey('Econ 2122'))
 eq('different courses stay different', codeKey('Econ 2122') === codeKey('Econ 2123'), false)
 
 const at = (h: number, m = 0) => new Date(2026, 7, 24, h, m, 0, 0)
-const ev = (id: string, title: string, h: number, endH: number, location = ''): CalendarEvent => ({
+const ev = (
+  id: string,
+  title: string,
+  h: number,
+  endH: number,
+  location = '',
+  calendar = '',
+): CalendarEvent => ({
   id,
   title,
   location,
+  calendar,
   start: at(h),
   end: at(endH),
-  course: parseCourse(title, NOW),
+  course: courseOf(calendar, title, NOW),
 })
 
 const today = [
@@ -111,6 +128,8 @@ const folder = (code: string, sections: string[]): CourseFolder => ({
   })),
   fileCount: sections.length,
   updated: 1,
+  lectures: [],
+  lecturesSource: 'none' as const,
 })
 
 const merged = toCourses(today, at(9), [folder('econ 2122', ['Week 1']), folder('Stats 2244', [])])
@@ -210,6 +229,62 @@ eq(
   false,
 )
 eq('but not for long', isStale(morningOf(24, 7, 40).getTime(), morningOf(24, 8, 0)), true)
+
+console.log('— the hour bar only counts hours the day actually has —')
+// The window is 08:00-24:00, so an alarm at 07:45 and a block running past
+// midnight are both partly outside it. Counting them whole was the bug.
+const nightOwl = [
+  ev('w', 'Wake Up', 7, 8),
+  ev('c', 'Econ 2122', 9, 10, 'SSC 2050', 'Econ 2122'),
+  ev('s', 'Sleep', 23, 25),
+]
+const clipped = toAllocation(nightOwl)
+eq('an event before the window opens counts nothing', clipped.find((a) => a.label === 'EVERYTHING ELSE')?.hours, 1)
+eq('class is unaffected', clipped.find((a) => a.label === 'CLASS')?.hours, 1)
+eq('unclaimed is the honest remainder', clipped.find((a) => a.label === 'UNCLAIMED')?.hours, 14)
+
+console.log('— only one evening block is the highlight —')
+const evening = toSchedule([
+  ev('gym', 'Rock Climbing', 19, 22),
+  ev('bed', 'Sleep', 23, 24),
+])
+eq('the first one wins', evening[0].kind, 'highlight')
+eq('a bedtime marker does not', evening[1].kind, 'plain')
+
+console.log('— which week of term it is —')
+const term = { start: '2026-09-07', end: '2026-12-04' }
+eq('before term', currentWeek(term, new Date(2026, 8, 6)), null)
+eq('the first day is week 1', currentWeek(term, new Date(2026, 8, 7)), 1)
+eq('six days later is still week 1', currentWeek(term, new Date(2026, 8, 13)), 1)
+eq('seven days later is week 2', currentWeek(term, new Date(2026, 8, 14)), 2)
+eq('after term', currentWeek(term, new Date(2026, 11, 5)), null)
+eq('no term at all', currentWeek(null, NOW), null)
+
+const syllabus = [
+  { week: 1, topic: 'Introduction' },
+  { week: 3, topic: 'Demand and Supply' },
+]
+eq('a topic for the week', topicForWeek(syllabus, 3), 'Demand and Supply')
+eq('a gap in the syllabus is not invented', topicForWeek(syllabus, 2), null)
+eq('outside the term there is no topic', topicForWeek(syllabus, null), null)
+
+console.log('— the timeline names the topic —')
+const withTopic = toSchedule(
+  [ev('a', 'Econ 2122 Lecture', 9, 10, 'SSC 2050', 'Econ 2122')],
+  new Map([[codeKey('Econ 2122'), { week: 3, topic: 'Demand and Supply' }]]),
+)
+const hero = withTopic[0]
+eq('the week shows on the hero slot', hero.kind === 'feature' && hero.seq, 'WEEK 3')
+eq(
+  'and so does the topic',
+  hero.kind === 'feature' && hero.facts[0],
+  { label: 'TOPIC', text: 'Demand and Supply' },
+)
+eq(
+  'without a syllabus it stays empty',
+  toSchedule([ev('a', 'Econ 2122', 9, 10, '', 'Econ 2122')])[0].kind === 'feature',
+  true,
+)
 
 console.log('— freshness —')
 eq('same day', freshness(new Date(2026, 7, 24, 8, 14).getTime(), NOW), 'read at 8:14 AM')

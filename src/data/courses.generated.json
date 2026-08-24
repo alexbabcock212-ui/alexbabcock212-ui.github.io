@@ -1,7 +1,11 @@
 {
-  "scannedAt": 1787603287489,
+  "scannedAt": 1787604523503,
   "root": "~/Desktop/Courses",
   "redacted": false,
+  "term": {
+    "start": "2026-09-05",
+    "end": "2026-12-05"
+  },
   "courses": [
     {
       "code": "Classics 2440",
@@ -9,7 +13,9 @@
       "sections": [],
       "materials": [],
       "fileCount": 0,
-      "updated": null
+      "updated": null,
+      "lectures": [],
+      "lecturesSource": "none"
     },
     {
       "code": "Econ 2122",
@@ -24,7 +30,62 @@
         }
       ],
       "fileCount": 1,
-      "updated": 1755552393214
+      "updated": 1755552393214,
+      "lectures": [
+        {
+          "week": 1,
+          "topic": "Introduction"
+        },
+        {
+          "week": 2,
+          "topic": "The Economic Problem"
+        },
+        {
+          "week": 3,
+          "topic": "Demand and Supply"
+        },
+        {
+          "week": 4,
+          "topic": "Elasticity"
+        },
+        {
+          "week": 5,
+          "topic": "Consumer Theory"
+        },
+        {
+          "week": 6,
+          "topic": "Producer Theory"
+        },
+        {
+          "week": 7,
+          "topic": "Monopoly"
+        },
+        {
+          "week": 8,
+          "topic": "Competitive Markets"
+        },
+        {
+          "week": 9,
+          "topic": "Efficiency and Equity"
+        },
+        {
+          "week": 10,
+          "topic": "Government Interventions"
+        },
+        {
+          "week": 11,
+          "topic": "Externalities"
+        },
+        {
+          "week": 12,
+          "topic": "Public Goods"
+        },
+        {
+          "week": 13,
+          "topic": "Labour Market"
+        }
+      ],
+      "lecturesSource": "file"
     },
     {
       "code": "Econ 2150",
@@ -32,7 +93,9 @@
       "sections": [],
       "materials": [],
       "fileCount": 0,
-      "updated": null
+      "updated": null,
+      "lectures": [],
+      "lecturesSource": "none"
     },
     {
       "code": "History 2121",
@@ -40,7 +103,9 @@
       "sections": [],
       "materials": [],
       "fileCount": 0,
-      "updated": null
+      "updated": null,
+      "lectures": [],
+      "lecturesSource": "none"
     },
     {
       "code": "Mos 2310",
@@ -48,7 +113,9 @@
       "sections": [],
       "materials": [],
       "fileCount": 0,
-      "updated": null
+      "updated": null,
+      "lectures": [],
+      "lecturesSource": "none"
     }
   ]
 }

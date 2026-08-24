@@ -7,6 +7,8 @@
  * classes, and a course with no folder is still a course.
  */
 import type { Course, CourseFolder, Material } from '../types'
+import { currentWeek } from './term'
+import type { Term } from './term'
 import { codeKey, isSameDay, timeLabel } from './calendar'
 import type { CalendarEvent } from './calendar'
 
@@ -89,8 +91,10 @@ export function toCourses(
   events: CalendarEvent[],
   today: Date,
   folders: CourseFolder[] = [],
+  term: Term | null = null,
 ): Course[] {
   const index = indexFolders(folders)
+  const week = currentWeek(term, today)
   const seen = new Map<string, { code: string; events: CalendarEvent[] }>()
 
   for (const e of events) {
@@ -114,6 +118,8 @@ export function toCourses(
       today: occurrences.some((e) => isSameDay(e.start, today)),
       facts: [],
       folder: index.get(key) ?? null,
+      lectures: index.get(key)?.lectures ?? [],
+      currentWeek: week,
     }
   })
 
@@ -130,6 +136,8 @@ export function toCourses(
       today: false,
       facts: [],
       folder,
+      lectures: folder.lectures,
+      currentWeek: week,
     }))
 
   return [...scheduled, ...folderOnly].sort((a, b) => a.code.localeCompare(b.code))

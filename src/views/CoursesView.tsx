@@ -18,6 +18,32 @@ const KIND_LABEL: Record<MaterialKind, string> = {
 /** `Chapter 6 Lecture.pdf` → `Chapter 6 Lecture` — the extension is the chip. */
 const stem = (name: string) => name.replace(/\.[^.]+$/, '')
 
+/** What this course is covering right now, or null outside the term. */
+const thisWeek = (c: Course) =>
+  c.lectures.find((l) => l.week === c.currentWeek)?.topic ?? null
+
+/** Every week of the term, with the current one called out. */
+function Lectures({ course }: { course: Course }) {
+  if (course.lectures.length === 0) return null
+
+  return (
+    <section className="ld-lectures">
+      <h3 className="ld-matgroup__name">Lectures</h3>
+      <ol className="ld-lecturelist">
+        {course.lectures.map((l) => {
+          const now = l.week === course.currentWeek
+          return (
+            <li className={`ld-lec${now ? ' ld-lec--now' : ''}`} key={l.week}>
+              <span className="ld-lec__week">{l.week}</span>
+              <span className="ld-lec__topic">{l.topic}</span>
+            </li>
+          )
+        })}
+      </ol>
+    </section>
+  )
+}
+
 function Materials({ course }: { course: Course }) {
   const folder = course.folder
   if (!folder) return null
@@ -103,6 +129,13 @@ export default function CoursesView({ dashboard, needsKey, onSetUp, error }: Pro
 
                 {c.name && <div className="ld-course__name">{c.name}</div>}
 
+                {thisWeek(c) && (
+                  <div className="ld-course__now">
+                    <span className="ld-course__now-kicker">WEEK {c.currentWeek}</span>
+                    <span className="ld-course__now-topic">{thisWeek(c)}</span>
+                  </div>
+                )}
+
                 {c.progress > 0 && (
                   <div
                     className="ld-course__track"
@@ -113,7 +146,7 @@ export default function CoursesView({ dashboard, needsKey, onSetUp, error }: Pro
                   </div>
                 )}
 
-                {folder && (
+                {(folder || c.lectures.length > 0) && (
                   <>
                     <button
                       type="button"
@@ -122,15 +155,22 @@ export default function CoursesView({ dashboard, needsKey, onSetUp, error }: Pro
                       onClick={() => setOpen(expanded ? null : c.code)}
                     >
                       <span className="ld-course__count">
-                        {folder.fileCount} {folder.fileCount === 1 ? 'FILE' : 'FILES'}
-                        {folder.sections.length > 0 && ` · ${folder.sections.length} SECTIONS`}
-                        {folder.updated !== null && ` · ${shortDate(folder.updated)}`}
+                        {c.lectures.length > 0 && `${c.lectures.length} LECTURES`}
+                        {c.lectures.length > 0 && folder && folder.fileCount > 0 && ' · '}
+                        {folder && folder.fileCount > 0 &&
+                          `${folder.fileCount} ${folder.fileCount === 1 ? 'FILE' : 'FILES'}`}
+                        {folder?.updated != null && ` · ${shortDate(folder.updated)}`}
                       </span>
                       <span className="ld-course__chevron" aria-hidden="true">
                         {expanded ? '–' : '+'}
                       </span>
                     </button>
-                    {expanded && <Materials course={c} />}
+                    {expanded && (
+                      <>
+                        <Lectures course={c} />
+                        <Materials course={c} />
+                      </>
+                    )}
                   </>
                 )}
 

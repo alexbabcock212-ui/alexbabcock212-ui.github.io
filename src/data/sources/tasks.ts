@@ -8,7 +8,7 @@
  */
 import type { RawAllDay, RawTask } from '../payload'
 import type { Deadline } from '../types'
-import { parseCourse } from './calendar'
+import { courseOf, parseCourse } from './calendar'
 
 /** Anything landing inside this many days is called out. */
 const URGENT_DAYS = 2
@@ -81,11 +81,11 @@ export function toDeadlines(
   const fromCalendar = allDay.flatMap((e): Deadline[] => {
     const due = localDate(e.date)
     if (!due) return []
-    const course = parseCourse(e.title, now)
+    const course = courseOf(e.calendar ?? '', e.title, now)
     return [
       {
         id: `allday:${e.id}`,
-        course: course?.code ?? 'CALENDAR',
+        course: course?.code ?? (e.calendar || 'CALENDAR').toUpperCase(),
         title: e.title,
         note: '',
         when: whenLabel(due, now),
