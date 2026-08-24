@@ -1,0 +1,638 @@
+/* Life Dashboard — screen styles.
+   Every value here comes from the Industry design system's tokens
+   (src/styles/industry.css). Nothing hard-codes a hex. */
+
+/* ─── document ─────────────────────────────────────────────────────────── */
+
+body {
+  margin: 0;
+  background: var(--color-neutral-200);
+  font-family: var(--font-body);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--color-accent-700); text-decoration: none; }
+a:hover { color: var(--color-accent); }
+::selection { background: var(--color-accent-200); }
+*:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* The design system styles bare headings and paragraphs for documents; inside
+   the app every block sets its own rhythm. Zero-specificity so the component
+   classes below still win. */
+.ld-phone :where(h1, h2, h3, h4, h5, h6, p, dl, dt, dd, ul, ol) { margin: 0; }
+.ld-phone :where(h1, h2, h3, h4, h5, h6) { letter-spacing: normal; }
+
+/* ─── device frame ─────────────────────────────────────────────────────── */
+
+.ld-stage {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-8) 16px;
+  background: var(--color-neutral-200);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-text) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-text) 4%, transparent) 1px, transparent 1px);
+  background-size: var(--space-8) var(--space-8);
+}
+
+.ld-phone {
+  position: relative;
+  width: 390px;
+  height: 844px;
+  border: 8px solid var(--color-accent-900);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ld-statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 16px 5px;
+  background: var(--color-accent-900);
+  color: var(--color-accent-300);
+  font-family: var(--font-heading);
+  font-size: 12.5px;
+  letter-spacing: 0.1em;
+}
+.ld-statusbar__indicators { display: flex; gap: 8px; }
+
+/* Painted behind the phone's real status bar / notch so the header colour runs
+   all the way up. Collapses to nothing where there is no inset. */
+.ld-safe-top {
+  display: none;
+  flex: none;
+  height: env(safe-area-inset-top);
+  background: var(--color-accent-900);
+}
+
+/* Once the bezel is gone — narrow screen, or launched from the home screen —
+   the simulated status bar would stack under the device's own. */
+@media (max-width: 460px), (display-mode: standalone) {
+  .ld-statusbar { display: none; }
+  .ld-safe-top { display: block; }
+}
+
+.ld-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  /* Keep the bounce inside the scroller instead of dragging the whole shell. */
+  overscroll-behavior: contain;
+}
+.ld-scroll::-webkit-scrollbar { width: 0; }
+
+/* On a real handset the frame is the handset — drop the chrome. */
+@media (max-width: 460px) {
+  .ld-stage { padding: 0; background-image: none; }
+  .ld-phone {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* ─── shared type ──────────────────────────────────────────────────────── */
+
+.ld-kicker {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--color-accent-700);
+}
+.ld-kicker--onDark { color: var(--color-accent-400); }
+
+.ld-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.ld-section-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+}
+.ld-section-meta {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-600);
+}
+.ld-section-meta--faint { color: var(--color-neutral-500); }
+
+.ld-page-head { padding: 16px 20px 14px; }
+.ld-page-head--tight { padding-bottom: 12px; }
+.ld-page-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1.02;
+  margin-top: 5px;
+}
+.ld-page-sub {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+  margin-top: 6px;
+  text-wrap: pretty;
+}
+.ld-page-head--onDark {
+  background: var(--color-accent-900);
+  color: var(--color-bg);
+  padding: 16px 20px;
+}
+.ld-page-head--onDark .ld-page-sub { color: var(--color-accent-200); }
+
+.ld-note {
+  margin: 16px 20px 26px;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+/* Registration marks — the design system's blueprint corner, drawn as a
+   single glyph so it can sit inside a filled panel as well as outside a box. */
+.ld-corner {
+  position: absolute;
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1;
+}
+.ld-corner--inset { color: var(--color-accent); }
+.ld-corner--inset.ld-corner--tl { top: 6px; left: 7px; }
+.ld-corner--inset.ld-corner--tr { top: 6px; right: 7px; }
+.ld-corner--inset.ld-corner--bl { bottom: 6px; left: 7px; }
+.ld-corner--inset.ld-corner--br { bottom: 6px; right: 7px; }
+.ld-corner--outset { color: var(--color-accent-900); }
+.ld-corner--outset.ld-corner--tl { top: -5px; left: -5px; }
+.ld-corner--outset.ld-corner--tr { top: -5px; right: -5px; }
+.ld-corner--outset.ld-corner--bl { bottom: -5px; left: -5px; }
+.ld-corner--outset.ld-corner--br { bottom: -5px; right: -5px; }
+
+/* ─── today: the brief ─────────────────────────────────────────────────── */
+
+.ld-brief {
+  position: relative;
+  background: var(--color-accent-900);
+  color: var(--color-bg);
+  padding: 18px 20px 20px;
+}
+.ld-brief__title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 38px;
+  line-height: 0.98;
+  margin-top: 8px;
+}
+.ld-brief__lede {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-accent-200);
+  margin-top: 11px;
+  text-wrap: pretty;
+}
+.ld-chips { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.ld-chip {
+  font-family: var(--font-heading);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  padding: 4px 9px;
+}
+.ld-chip--solid { background: var(--color-accent); color: var(--color-bg); }
+.ld-chip--outline { border: 1px solid var(--color-accent); color: var(--color-accent-300); }
+
+/* ─── today: hour allocation ───────────────────────────────────────────── */
+
+.ld-alloc { padding: 16px 20px 6px; }
+.ld-alloc__bar {
+  display: flex;
+  height: 14px;
+  margin-top: 9px;
+  border: 1px solid var(--color-accent-900);
+}
+.ld-alloc__legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 14px;
+  margin-top: 9px;
+  font-family: var(--font-heading);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: var(--color-neutral-700);
+}
+.ld-alloc__item { display: flex; gap: 7px; align-items: center; }
+.ld-swatch { width: 9px; height: 9px; display: inline-block; flex: none; }
+.ld-swatch--open { border: 1px solid var(--color-neutral-400); }
+
+/* ─── today: hour by hour ──────────────────────────────────────────────── */
+
+.ld-timeline { padding: 8px 20px 22px; display: flex; flex-direction: column; }
+.ld-timeline__head {
+  padding: 18px 20px 4px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.ld-slot { display: grid; grid-template-columns: 50px 1fr; gap: 12px; }
+.ld-slot__time {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  padding-top: 10px;
+}
+.ld-slot--anchor .ld-slot__time { font-weight: 600; color: var(--color-accent-900); }
+.ld-slot--now .ld-slot__time {
+  font-weight: 600;
+  color: var(--color-bg);
+  background: var(--color-accent);
+  padding: 10px 0 0;
+  text-align: center;
+  height: 34px;
+}
+
+.ld-slot__body {
+  border-left: 2px solid var(--color-neutral-200);
+  padding: 9px 0 13px 14px;
+}
+.ld-slot--anchor .ld-slot__body {
+  border-left-color: var(--color-accent);
+  padding-top: 6px;
+}
+.ld-slot--now .ld-slot__body {
+  border-left: 0;
+  padding: 6px 0 0 14px;
+}
+.ld-slot__title { font-size: 14px; font-weight: 500; }
+.ld-slot__note { font-size: 12.5px; color: var(--color-neutral-600); margin-top: 2px; }
+
+/* the lecture that anchors the day */
+.ld-lecture {
+  position: relative;
+  border: 1px solid var(--color-accent-900);
+  background: var(--color-accent-100);
+  padding: 14px;
+}
+.ld-lecture__head { display: flex; justify-content: space-between; align-items: baseline; }
+.ld-lecture__where {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  background: var(--color-accent-900);
+  color: var(--color-bg);
+  padding: 3px 7px;
+}
+.ld-lecture__seq {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--color-accent-700);
+}
+.ld-lecture__title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1.08;
+  margin-top: 9px;
+}
+
+.ld-deflist { margin-top: 11px; display: flex; flex-direction: column; gap: 7px; }
+.ld-deflist__row {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.ld-deflist__label {
+  font-family: var(--font-heading);
+  letter-spacing: 0.1em;
+  color: var(--color-accent-700);
+}
+
+/* the quieter second lecture */
+.ld-minor { border: 1px solid var(--color-accent-400); padding: 12px 14px; }
+.ld-minor__head { display: flex; justify-content: space-between; align-items: baseline; }
+.ld-minor__where {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--color-accent-700);
+}
+.ld-minor__seq {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-600);
+}
+.ld-minor__title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.1;
+  margin-top: 5px;
+}
+.ld-minor__note { font-size: 12.5px; color: var(--color-neutral-700); margin-top: 7px; }
+
+/* the evening block */
+.ld-highlight { background: var(--color-accent); color: var(--color-bg); padding: 13px 14px; }
+.ld-highlight__kicker {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--color-accent-100);
+}
+.ld-highlight__title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 21px;
+  line-height: 1.1;
+  margin-top: 4px;
+}
+.ld-highlight__note { font-size: 12.5px; color: var(--color-accent-100); margin-top: 6px; }
+
+.ld-rebuild {
+  margin: 0 20px 26px;
+  border-top: 2px solid var(--color-accent-900);
+  padding-top: 13px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.ld-rebuild__at {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--color-accent-700);
+  padding-top: 2px;
+  white-space: nowrap;
+}
+.ld-rebuild__text {
+  font-size: 12.5px;
+  color: var(--color-neutral-700);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* ─── money ────────────────────────────────────────────────────────────── */
+
+.ld-networth {
+  background: var(--color-accent-900);
+  color: var(--color-bg);
+  padding: 18px 20px;
+}
+.ld-networth__value {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 46px;
+  line-height: 1;
+}
+.ld-networth__delta { font-size: 13px; color: var(--color-accent-200); margin-top: 4px; }
+
+.ld-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+.ld-stat { padding: 13px 14px; border-right: 1px solid var(--color-neutral-300); }
+.ld-stat:last-child { border-right: 0; }
+.ld-stat--lead { background: var(--color-accent-100); }
+.ld-stat__label {
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--color-neutral-600);
+}
+.ld-stat--lead .ld-stat__label { color: var(--color-accent-700); }
+.ld-stat__value { font-family: var(--font-heading); font-size: 24px; line-height: 1.1; }
+.ld-stat--lead .ld-stat__value { color: var(--color-accent-900); }
+
+.ld-block-title {
+  padding: 16px 20px 6px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+}
+
+.ld-positions { padding: 0 20px; }
+.ld-position {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+.ld-position__name { font-family: var(--font-heading); font-size: 16px; }
+.ld-position__desc { font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); }
+.ld-position__value { font-family: var(--font-heading); font-size: 16px; }
+.ld-position__change {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+}
+.ld-position__change--up { color: var(--color-bg); background: var(--color-accent-700); }
+.ld-position__change--quiet {
+  color: var(--color-neutral-700);
+  border: 1px solid var(--color-neutral-300);
+}
+
+.ld-outflows { padding: 0 20px 18px; }
+.ld-outflow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-neutral-300);
+  font-size: 14px;
+}
+.ld-outflow__amount { font-family: var(--font-heading); font-size: 15px; white-space: nowrap; }
+
+.ld-callout {
+  margin: 0 20px 26px;
+  background: var(--color-accent-900);
+  color: var(--color-accent-200);
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+/* ─── due ──────────────────────────────────────────────────────────────── */
+
+.ld-deadlines {
+  border-top: 2px solid var(--color-accent-900);
+  padding: 0;
+  list-style: none;
+}
+.ld-deadline {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 11px;
+  align-items: center;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-neutral-300);
+  padding: 13px 20px;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.ld-deadline { -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) {
+  .ld-deadline:hover { background: var(--color-accent-100); }
+}
+/* Touch still needs feedback — this is the press state. */
+.ld-deadline:active { background: var(--color-accent-100); }
+.ld-deadline__box {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-neutral-400);
+  background: transparent;
+}
+.ld-deadline.is-done .ld-deadline__box {
+  border-color: var(--color-accent-900);
+  background: var(--color-accent-900);
+}
+.ld-deadline__course {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--color-neutral-600);
+}
+.ld-deadline__title { display: block; font-size: 14.5px; font-weight: 500; }
+.ld-deadline.is-done .ld-deadline__title {
+  text-decoration: line-through;
+  color: var(--color-neutral-500);
+}
+.ld-deadline__note {
+  display: block;
+  font-size: 12.5px;
+  color: var(--color-neutral-600);
+  margin-top: 1px;
+}
+.ld-deadline__when {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-600);
+  text-align: right;
+  white-space: pre-line;
+  line-height: 1.25;
+}
+.ld-deadline__when--urgent { color: var(--color-accent-900); }
+.ld-deadline.is-done .ld-deadline__when { color: var(--color-neutral-400); }
+
+/* ─── mail ─────────────────────────────────────────────────────────────── */
+
+.ld-clusters { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+.ld-cluster {
+  border: 1px solid var(--color-neutral-300);
+  border-left: 4px solid var(--color-neutral-300);
+  padding: 13px 14px;
+}
+.ld-cluster--live { border-left-color: var(--color-accent); }
+.ld-cluster__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.ld-cluster__name { font-family: var(--font-heading); font-weight: 600; font-size: 19px; }
+.ld-cluster__count {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--color-neutral-600);
+  white-space: nowrap;
+}
+.ld-cluster__summary {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+  line-height: 1.5;
+  margin-top: 4px;
+  text-wrap: pretty;
+}
+.ld-cluster__tag {
+  display: inline-block;
+  margin-top: 9px;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  padding: 3px 8px;
+  background: transparent;
+  color: var(--color-neutral-600);
+  border: 1px solid var(--color-neutral-300);
+}
+.ld-cluster--live .ld-cluster__tag {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+  border-color: var(--color-accent);
+}
+
+/* ─── courses ──────────────────────────────────────────────────────────── */
+
+.ld-courses { padding: 6px 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+.ld-course { border: 1px solid var(--color-neutral-300); padding: 14px; }
+.ld-course--today { border-color: var(--color-accent-900); }
+.ld-course__head { display: flex; justify-content: space-between; align-items: baseline; }
+.ld-course__code { font-family: var(--font-heading); font-weight: 700; font-size: 20px; }
+.ld-course__meets {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-600);
+}
+.ld-course__name { font-size: 13px; color: var(--color-neutral-700); }
+.ld-course__track { height: 3px; background: var(--color-neutral-200); margin: 11px 0 10px; }
+.ld-course__fill { height: 3px; background: var(--color-accent); }
+.ld-course--today .ld-course__fill { background: var(--color-accent-900); }
+.ld-course__facts { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+
+/* ─── tab bar ──────────────────────────────────────────────────────────── */
+
+.ld-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--color-accent-900);
+  /* Keep the labels above the home indicator. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.ld-tab {
+  position: relative;
+  background: transparent;
+  border: 0;
+  padding: 13px 0 16px;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--color-accent-400);
+  cursor: pointer;
+}
+.ld-tab { -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) {
+  .ld-tab:hover { background: var(--color-accent-800); }
+}
+.ld-tab__marker {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: 8px;
+  height: 3px;
+  background: var(--color-bg);
+}
