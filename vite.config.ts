@@ -39,6 +39,12 @@ export default defineConfig({
         // woff2 is NOT in the plugin's default glob — without it the
         // self-hosted fonts would be the one thing missing offline.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // The plugin defaults to navigateFallback: 'index.html', which makes
+        // the service worker answer *every* navigation with the app shell.
+        // Google has to be able to fetch the consent-screen URLs, and so does
+        // anyone tapping the footer links from the installed app, so these two
+        // are routed to the real static pages instead.
+        navigateFallbackDenylist: [/^\/privacy\//, /^\/terms\//],
       },
     }),
   ],

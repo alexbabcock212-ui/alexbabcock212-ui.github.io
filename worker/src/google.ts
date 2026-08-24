@@ -118,7 +118,6 @@ export interface RawMessage {
   from: string
   address: string
   subject: string
-  snippet: string
   /** Epoch ms. */
   date: number
 }
@@ -286,12 +285,18 @@ interface ApiMessageRef {
 interface ApiMessage {
   id: string
   threadId: string
-  snippet?: string
   internalDate?: string
   payload?: { headers?: { name: string; value: string }[] }
 }
 
-/** Unread inbox mail from the last fortnight. Metadata only — never bodies. */
+/**
+ * Unread inbox mail from the last fortnight. Senders, subjects and timestamps.
+ *
+ * Gmail returns a `snippet` — an excerpt of the message body — on every read,
+ * `format=metadata` included. Nothing displays it, so it is dropped here rather
+ * than carried to the device: it is the difference between the privacy policy
+ * saying "no message bodies" and having to qualify it.
+ */
 const MAIL_QUERY = 'is:unread in:inbox newer_than:14d'
 const MAIL_LIMIT = 40
 
@@ -347,7 +352,6 @@ export async function fetchMail(token: string): Promise<RawMessage[]> {
         from,
         address,
         subject: headers.get('subject')?.trim() ?? '(no subject)',
-        snippet: (m.snippet ?? '').trim(),
         date: Number(m.internalDate ?? 0),
       }
     })

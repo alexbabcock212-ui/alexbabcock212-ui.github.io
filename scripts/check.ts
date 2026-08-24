@@ -175,7 +175,6 @@ const msg = (id: string, from: string, address: string, subject: string, dayOffs
   from,
   address,
   subject,
-  snippet: '',
   date: new Date(2026, 7, 24 + dayOffset, 9).getTime(),
 })
 const clusters = toClusters(

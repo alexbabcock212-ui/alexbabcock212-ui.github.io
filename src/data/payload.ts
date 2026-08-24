@@ -40,7 +40,6 @@ export interface RawMessage {
   from: string
   address: string
   subject: string
-  snippet: string
   /** Epoch ms. */
   date: number
 }
