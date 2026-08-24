@@ -6,6 +6,8 @@ grouped into things that want a reply, and where the money sits.
 Built from the `Life Dashboard v2` Claude Design prototype on the **Industry**
 design system, and installable to a phone home screen.
 
+**Live:** https://alexbabcock212-ui.github.io/
+
 ## Running it
 
 ```bash
@@ -13,7 +15,18 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # typecheck + production bundle into dist/
 npm run lint
+npm run deploy   # build, then publish to the gh-pages branch
 ```
+
+## Deploying
+
+GitHub Pages serves the **`gh-pages`** branch, which holds only build output;
+`main` holds only source. `npm run deploy` builds and force-pushes the one to
+the other, and Pages rebuilds itself within about half a minute.
+
+There is no CI workflow, because publishing one needs a `workflow` scope this
+repo's token doesn't carry. To switch to push-to-deploy instead, run
+`gh auth refresh -s workflow` and add a standard Pages Actions workflow.
 
 ## Layout
 
@@ -32,6 +45,7 @@ src/
     app.css               screen styles, built only from Industry's tokens
 icons/                    icon sources (SVG) — see "Icons"
 scripts/make-icons.mjs    rasterises them; run manually, output is committed
+scripts/deploy.sh         build + publish to the gh-pages branch
 ```
 
 ### Design system
