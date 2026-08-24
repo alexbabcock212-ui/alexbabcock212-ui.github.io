@@ -63,6 +63,9 @@ function bearer(request: Request): string {
 
 /* ── the setup flow ────────────────────────────────────────────────────── */
 
+const escape = (s: string) =>
+  s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)
+
 const page = (title: string, body: string, status = 200) =>
   new Response(
     `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
@@ -104,13 +107,43 @@ async function authCallback(url: URL, env: Env): Promise<Response> {
   const code = url.searchParams.get('code')
   if (!code) return page('Missing code', '<h1>No authorization code</h1>', 400)
 
-  const { refreshToken } = await exchangeCode(env, code, `${url.origin}/auth/callback`)
+  const { refreshToken, error: exchangeError } = await exchangeCode(
+    env,
+    code,
+    `${url.origin}/auth/callback`,
+  )
+
+  // The exchange itself failed. Name the cause: these are the three that
+  // actually happen, and each sends you somewhere completely different.
+  if (exchangeError) {
+    const hint = exchangeError.startsWith('invalid_client')
+      ? `<p><strong>GOOGLE_CLIENT_SECRET is missing or wrong.</strong> Set it with
+         <code>pbpaste | npx wrangler secret put GOOGLE_CLIENT_SECRET</code> and try again.</p>`
+      : exchangeError.startsWith('redirect_uri_mismatch')
+        ? `<p><strong>The redirect URI is not registered.</strong> Add
+           <code>${url.origin}/auth/callback</code> to the OAuth client's authorized
+           redirect URIs, exactly, and try again.</p>`
+        : exchangeError.startsWith('invalid_grant')
+          ? `<p><strong>This authorization code was already used or has expired.</strong>
+             They are single-use and short-lived. Start again from <code>/auth/start</code>.</p>`
+          : ''
+
+    return page(
+      'Exchange failed',
+      `<h1>Google refused the exchange</h1>
+       <pre>${escape(exchangeError)}</pre>${hint}`,
+      400,
+    )
+  }
+
+  // The exchange worked but carried no refresh token, which means one thing
+  // only: this account already has a live grant for the client.
   if (!refreshToken) {
     return page(
       'No refresh token',
-      `<h1>Google returned no refresh token</h1>
-       <p>That happens when this account has already granted the app and Google
-       sees no reason to issue another. Revoke it at
+      `<h1>Consent succeeded, but Google issued no refresh token</h1>
+       <p>Google only returns one on a <em>fresh</em> grant. This account already
+       has a live grant for this client, so revoke it at
        <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>
        and run <code>/auth/start</code> again.</p>`,
       400,
@@ -122,7 +155,7 @@ async function authCallback(url: URL, env: Env): Promise<Response> {
     `<h1>Copy this into the Worker's secrets</h1>
      <p>Run this on your Mac, paste the value when prompted, then close this tab.
      This is the last time you will sign in to Google for this dashboard.</p>
-     <pre>${refreshToken.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)}</pre>
+     <pre>${escape(refreshToken)}</pre>
      <p><code>npx wrangler secret put GOOGLE_REFRESH_TOKEN</code></p>`,
   )
 }

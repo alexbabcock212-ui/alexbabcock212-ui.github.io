@@ -62,12 +62,20 @@ export async function accessToken(env: Env): Promise<string> {
   return cached.token
 }
 
-/** Exchange a one-time authorization code for a refresh token. Setup only. */
+/**
+ * Exchange a one-time authorization code for a refresh token. Setup only.
+ *
+ * Reports *why* it failed rather than just that it did. Every distinct failure
+ * here — a missing client secret, a redirect URI that does not match the one
+ * registered, a code already spent — arrives as an HTTP 400 with a specific
+ * `error` field, and collapsing them into "no refresh token" sends you looking
+ * in the wrong place.
+ */
 export async function exchangeCode(
   env: Env,
   code: string,
   redirectUri: string,
-): Promise<{ refreshToken: string | null; raw: unknown }> {
+): Promise<{ refreshToken: string | null; error: string | null }> {
   const response = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -80,8 +88,18 @@ export async function exchangeCode(
     }),
   })
 
-  const raw = (await response.json()) as { refresh_token?: string }
-  return { refreshToken: raw.refresh_token ?? null, raw }
+  const raw = (await response.json()) as {
+    refresh_token?: string
+    error?: string
+    error_description?: string
+  }
+
+  if (!response.ok || raw.error) {
+    const detail = raw.error_description ? ` — ${raw.error_description}` : ''
+    return { refreshToken: null, error: `${raw.error ?? `HTTP ${response.status}`}${detail}` }
+  }
+
+  return { refreshToken: raw.refresh_token ?? null, error: null }
 }
 
 /* ── the shapes the dashboard reads ────────────────────────────────────── */
