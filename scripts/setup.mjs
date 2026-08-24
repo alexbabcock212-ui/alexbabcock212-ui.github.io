@@ -43,7 +43,6 @@ import {
   run,
   shapeOf,
   upsertEnvLine,
-  warn,
   workerDashboard,
   workerHealth,
 } from './lib/setup-lib.mjs'
@@ -191,7 +190,8 @@ function consent(clientId) {
         res.end(closeTab(title, body))
         clearTimeout(timer)
         server.close()
-        err ? reject(err) : resolvePromise(code)
+        if (err) reject(err)
+        else resolvePromise(code)
       }
 
       const error = got.searchParams.get('error')
