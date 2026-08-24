@@ -29,3 +29,6 @@ dist-ssr
 
 # Scratch output from the SSR render check
 .ssr-check
+
+# Bundled output from scripts/check.sh
+.check

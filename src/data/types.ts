@@ -163,6 +163,9 @@ export interface Dashboard {
   clusters: Cluster[]
   courses: Course[]
 
+  /** When the calendar was last read, epoch ms. Null if never. */
+  fetchedAt: number | null
+
   netWorth: NetWorth | null
   moneyStats: Stat[]
   positions: Position[]

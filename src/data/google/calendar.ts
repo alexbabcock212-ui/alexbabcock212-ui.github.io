@@ -46,14 +46,27 @@ export interface CalendarEvent {
  *
  * Tolerates surrounding text, so `Econ 2122 - 001 LEC` and
  * `Managerial Accounting (Mos 2310)` both resolve.
+ *
+ * The subject must be capitalised, which is what stops ordinary events like
+ * `Pay rent 2026` from being read as a course.
  */
-const COURSE_RE = /(?:^|[^A-Za-z])([A-Za-z][A-Za-z&.'-]{1,19})\s+(\d{4}[A-Za-z]?)(?![0-9])/
+const COURSE_RE = /(?:^|[^A-Za-z])([A-Z][A-Za-z&.'-]{1,19})\s+(\d{4})([A-Za-z]?)(?![0-9])/
 
-export function parseCourse(title: string): CalendarEvent['course'] {
+/** Years look exactly like catalogue numbers, so nearby ones are not courses. */
+const YEAR_SPAN = 6
+
+export function parseCourse(title: string, now: Date = new Date()): CalendarEvent['course'] {
   const m = COURSE_RE.exec(title)
   if (!m) return null
-  const subject = m[1]
-  const number = m[2]
+
+  const [, subject, digits, suffix] = m
+
+  // `Reading Week 2026` is not a course; `Econ 2122` is.
+  const asNumber = Number(digits)
+  const year = now.getFullYear()
+  if (!suffix && asNumber >= year - YEAR_SPAN && asNumber <= year + YEAR_SPAN) return null
+
+  const number = `${digits}${suffix}`
   return { code: `${subject} ${number}`, subject, number }
 }
 

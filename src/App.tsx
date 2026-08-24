@@ -19,7 +19,7 @@ interface Props {
 }
 
 export default function App({ userName = 'Alex', startTab = 'today' }: Props) {
-  const { dashboard, error, connect } = useDashboard()
+  const { dashboard, error, canRefresh, connect } = useDashboard()
   const [tab, setTab] = useState<TabId>(startTab)
   const [done, setDone] = useState(loadCompletion)
   const scroller = useRef<HTMLDivElement>(null)
@@ -47,6 +47,7 @@ export default function App({ userName = 'Alex', startTab = 'today' }: Props) {
               userName={userName}
               dashboard={dashboard}
               onConnect={connect}
+              canRefresh={canRefresh}
               error={error}
             />
           )}

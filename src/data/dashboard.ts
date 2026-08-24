@@ -23,6 +23,8 @@ export const dashboard: Dashboard = {
   lede: null,
   chips: [],
 
+  fetchedAt: null,
+
   deadlines: [],
   clusters: [],
   courses: [],
@@ -49,6 +51,15 @@ export function salutation(now: Date = new Date()): string {
   if (h < 12) return 'Morning'
   if (h < 18) return 'Afternoon'
   return 'Evening'
+}
+
+/** e.g. `read at 8:14 AM`, `read yesterday`, `read 3 days ago`. */
+export function freshness(fetchedAt: number, now: Date = new Date()): string {
+  const then = new Date(fetchedAt)
+  const days = Math.floor((now.getTime() - fetchedAt) / 86_400_000)
+  if (now.toDateString() === then.toDateString()) return `read at ${clock(then)}`
+  if (days <= 1) return 'read yesterday'
+  return `read ${days} days ago`
 }
 
 /** e.g. `6:02 AM`, for the simulated status bar in the desktop bezel. */

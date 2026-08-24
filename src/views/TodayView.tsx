@@ -1,6 +1,6 @@
 import Corners from '../components/Corners'
 import EmptyState from '../components/EmptyState'
-import { dateKicker, salutation } from '../data/dashboard'
+import { dateKicker, freshness, salutation } from '../data/dashboard'
 import type { Dashboard, Slot } from '../data/types'
 
 const formatHours = (h: number) => `${h}H`
@@ -106,11 +106,18 @@ interface Props {
   userName: string
   dashboard: Dashboard
   onConnect: () => void
+  canRefresh: boolean
   error: string | null
 }
 
-export default function TodayView({ userName, dashboard, onConnect, error }: Props) {
-  const { calendar, schedule, allocation, lede, chips } = dashboard
+export default function TodayView({
+  userName,
+  dashboard,
+  onConnect,
+  canRefresh,
+  error,
+}: Props) {
+  const { calendar, schedule, allocation, lede, chips, fetchedAt } = dashboard
   const connected = calendar === 'ready'
 
   return (
@@ -177,6 +184,24 @@ export default function TodayView({ userName, dashboard, onConnect, error }: Pro
             ))}
           </section>
         </>
+      )}
+
+      {fetchedAt !== null && (
+        <footer className="ld-rebuild">
+          <span className="ld-rebuild__at">CALENDAR</span>
+          <span className="ld-rebuild__text">
+            Your timetable, {freshness(fetchedAt)}. Two weeks of it are kept on this
+            device, so it opens without a network.
+            {!canRefresh && (
+              <>
+                {' '}
+                <button type="button" className="ld-refresh" onClick={onConnect}>
+                  Reconnect to refresh
+                </button>
+              </>
+            )}
+          </span>
+        </footer>
       )}
     </div>
   )
