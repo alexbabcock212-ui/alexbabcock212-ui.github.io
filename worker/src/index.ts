@@ -73,7 +73,11 @@ const page = (title: string, body: string, status = 200) =>
       `<style>body{font:16px/1.6 ui-sans-serif,system-ui,sans-serif;max-width:44rem;margin:3rem auto;padding:0 1.25rem;color:#1d2d3d}` +
       `code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em}` +
       `pre{background:#f2f4f6;padding:1rem;border-radius:6px;overflow-x:auto;user-select:all}` +
-      `h1{font-size:1.5rem}</style>${body}`,
+      `h1{font-size:1.5rem}` +
+      `.warn{background:#fdf2f2;border-left:3px solid #b3261e;padding:.75rem 1rem}` +
+      `button{font:inherit;padding:.5rem .9rem;background:#1d2d3d;color:#fff;border:0;cursor:pointer}` +
+      `button:hover{background:#2c455d}` +
+      `#m{margin-left:.75rem;color:#5d5d60}</style>${body}`,
     { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
   )
 
@@ -150,13 +154,43 @@ async function authCallback(url: URL, env: Env): Promise<Response> {
     )
   }
 
+  // The token is deliberately not rendered as selectable prose.
+  //
+  // The obvious page — instructions with the token in a <pre> underneath — reads
+  // as one block to be copied somewhere, and the somewhere is not always a
+  // terminal. A refresh token is the most sensitive thing in this whole setup:
+  // it is standing read access to a calendar, a task list and an inbox. So the
+  // value goes to the clipboard by button and is shown only as a masked stub.
+  const masked = `${escape(refreshToken.slice(0, 8))}${'\u2022'.repeat(24)}`
+
   return page(
     'Refresh token',
-    `<h1>Copy this into the Worker's secrets</h1>
-     <p>Run this on your Mac, paste the value when prompted, then close this tab.
-     This is the last time you will sign in to Google for this dashboard.</p>
-     <pre>${escape(refreshToken)}</pre>
-     <p><code>npx wrangler secret put GOOGLE_REFRESH_TOKEN</code></p>`,
+    `<h1>Consent granted</h1>
+     <p class="warn"><strong>This is a live credential.</strong> It grants ongoing
+     read access to your calendar, tasks and mail. Put it in your terminal and
+     nowhere else — not a chat, not an email, not a note.</p>
+     <p>Run this first, then come back and press Copy:</p>
+     <pre>./worker/set-secret.sh GOOGLE_REFRESH_TOKEN</pre>
+     <p>
+       <button id="c" data-t="${escape(refreshToken)}">Copy token to clipboard</button>
+       <code id="m">${masked}</code>
+     </p>
+     <p id="s"></p>
+     <script>
+       const b = document.getElementById('c');
+       b.addEventListener('click', async () => {
+         try {
+           await navigator.clipboard.writeText(b.dataset.t);
+           document.getElementById('s').textContent =
+             'Copied. Paste it at the prompt in your terminal, then close this tab.';
+           b.textContent = 'Copied';
+         } catch {
+           document.getElementById('s').textContent =
+             'Clipboard blocked by the browser. Select the value below and copy it by hand.';
+           document.getElementById('m').textContent = b.dataset.t;
+         }
+       });
+     </script>`,
   )
 }
 
