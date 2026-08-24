@@ -19,11 +19,21 @@ const KIND_LABEL: Record<MaterialKind, string> = {
 const stem = (name: string) => name.replace(/\.[^.]+$/, '')
 
 /** What this course is covering right now, or null outside the term. */
-const thisWeek = (c: Course) =>
-  c.lectures.find((l) => l.week === c.currentWeek)?.topic ?? null
+const thisWeek = (c: Course) => c.lectures.find((l) => l.week === c.currentWeek) ?? null
 
-/** Every week of the term, with the current one called out. */
+/** `Sep 17 and 19 · Ch 3` — whichever of the two the syllabus gave. */
+const lectureMeta = (dates: string, readings: string) =>
+  [dates, readings && `Ch ${readings}`].filter(Boolean).join(' · ')
+
+/**
+ * Every week of the term, one tappable row each.
+ *
+ * The current week opens by default and the rest stay shut: thirteen expanded
+ * summaries is not a phone screen. Rows with nothing more to show than their
+ * topic do not pretend to be expandable.
+ */
 function Lectures({ course }: { course: Course }) {
+  const [open, setOpen] = useState<number | null>(course.currentWeek)
   if (course.lectures.length === 0) return null
 
   return (
@@ -32,14 +42,68 @@ function Lectures({ course }: { course: Course }) {
       <ol className="ld-lecturelist">
         {course.lectures.map((l) => {
           const now = l.week === course.currentWeek
+          const meta = lectureMeta(l.dates, l.readings)
+          const expandable = Boolean(l.detail || meta)
+          const shown = expandable && open === l.week
+
           return (
             <li className={`ld-lec${now ? ' ld-lec--now' : ''}`} key={l.week}>
-              <span className="ld-lec__week">{l.week}</span>
-              <span className="ld-lec__topic">{l.topic}</span>
+              <button
+                type="button"
+                className="ld-lec__row"
+                aria-expanded={expandable ? shown : undefined}
+                disabled={!expandable}
+                onClick={() => setOpen(shown ? null : l.week)}
+              >
+                <span className="ld-lec__week">{l.week}</span>
+                <span className="ld-lec__topic">{l.topic || meta || 'No topic recorded'}</span>
+                {expandable && (
+                  <span className="ld-lec__chevron" aria-hidden="true">
+                    {shown ? '–' : '+'}
+                  </span>
+                )}
+              </button>
+
+              {shown && (
+                <div className="ld-lec__body">
+                  {meta && <div className="ld-lec__meta">{meta}</div>}
+                  {l.detail && (
+                    <ul className="ld-lec__points">
+                      {l.detail.split(' · ').map((point) => (
+                        <li key={point}>{point}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {/* A parsed bullet and a hand-written note should not read
+                      as the same kind of statement. */}
+                  {l.detailSource === 'slides' && (
+                    <div className="ld-lec__source">from this week&rsquo;s slides</div>
+                  )}
+                </div>
+              )}
             </li>
           )
         })}
       </ol>
+    </section>
+  )
+}
+
+/** Midterms, finals and reading weeks, as the syllabus dated them. */
+function Assessments({ course }: { course: Course }) {
+  if (course.assessments.length === 0) return null
+
+  return (
+    <section className="ld-lectures">
+      <h3 className="ld-matgroup__name">Dates</h3>
+      <ul className="ld-matlist">
+        {course.assessments.map((a) => (
+          <li className="ld-mat" key={`${a.label}-${a.dates}`}>
+            <span className="ld-mat__name">{a.label}</span>
+            <span className="ld-mat__kind">{a.dates}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
@@ -129,10 +193,15 @@ export default function CoursesView({ dashboard, needsKey, onSetUp, error }: Pro
 
                 {c.name && <div className="ld-course__name">{c.name}</div>}
 
-                {thisWeek(c) && (
+                {thisWeek(c)?.topic && (
                   <div className="ld-course__now">
                     <span className="ld-course__now-kicker">WEEK {c.currentWeek}</span>
-                    <span className="ld-course__now-topic">{thisWeek(c)}</span>
+                    <span className="ld-course__now-topic">{thisWeek(c)?.topic}</span>
+                    {thisWeek(c)?.detail && (
+                      <span className="ld-course__now-detail">
+                        {thisWeek(c)!.detail.split(' · ')[0]}
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -146,7 +215,7 @@ export default function CoursesView({ dashboard, needsKey, onSetUp, error }: Pro
                   </div>
                 )}
 
-                {(folder || c.lectures.length > 0) && (
+                {(folder || c.lectures.length > 0 || c.assessments.length > 0) && (
                   <>
                     <button
                       type="button"
@@ -168,6 +237,7 @@ export default function CoursesView({ dashboard, needsKey, onSetUp, error }: Pro
                     {expanded && (
                       <>
                         <Lectures course={c} />
+                        <Assessments course={c} />
                         <Materials course={c} />
                       </>
                     )}

@@ -20,6 +20,14 @@ import { toClusters } from '../src/data/sources/mail'
 import { isStale, lastMorning, nextMorning } from '../src/data/morning'
 import { currentWeek, topicForWeek } from '../src/data/sources/term'
 import { freshness } from '../src/data/dashboard'
+// @ts-expect-error - plain JS helper, deliberately untyped
+import {
+  deckScore,
+  extractObjectives,
+  findAssessments,
+  findSchedule,
+  mergeLectures,
+} from './lib/syllabus.mjs'
 import type { CourseFolder } from '../src/data/types'
 
 let fails = 0
@@ -285,6 +293,77 @@ eq(
   toSchedule([ev('a', 'Econ 2122', 9, 10, '', 'Econ 2122')])[0].kind === 'feature',
   true,
 )
+
+console.log('— reading a syllabus schedule —')
+const SYLLABUS = [
+  'week dates topic chapters',
+  '1 Sep 05 Introduction 1',
+  '2 Sep 10 and 12 The Economic Problem 2',
+  'Oct 06 Midterm 1 1-4, 9',
+  '3 Oct 08 and 10 Producer Theory 10',
+  'Oct 14 to Oct 18 Reading Week —-',
+].join('\n')
+
+const schedule = findSchedule(SYLLABUS)
+eq('every numbered row', schedule.length, 3)
+eq('topic without its columns', schedule[1].topic, 'The Economic Problem')
+eq('dates kept', schedule[1].dates, 'Sep 10 and 12')
+eq('readings kept', schedule[1].readings, '2')
+eq('an undated row is not given a week', schedule.map((l: { week: number }) => l.week), [1, 2, 3])
+
+const dated = findAssessments(SYLLABUS)
+eq('midterms and breaks are collected', dated.map((a: { label: string }) => a.label), [
+  'Midterm 1',
+  'Reading Week',
+])
+eq('with their dates', dated[0].dates, 'Oct 06')
+eq('and the chapter column stripped', dated[0].label, 'Midterm 1')
+
+console.log('— reading a lecture deck —')
+const DECK = [
+  '6 ECONOMIC GROWTH',
+  'After studying this chapter, you will be able to:',
+  '◆ Define and calculate the economic growth rate',
+  '◆ Describe the economic growth trends in Canada',
+  '© 2025 Pearson Canada',
+].join('\n')
+const parsedDeck = extractObjectives(DECK)
+eq('the heading, without its chapter number', parsedDeck.title, 'ECONOMIC GROWTH')
+eq(
+  'the objectives, joined',
+  parsedDeck.objectives,
+  'Define and calculate the economic growth rate · Describe the economic growth trends in Canada',
+)
+
+const NO_CUE = ['WEEK 1 – The Enlightenment', 'Some body text that follows on.'].join('\n')
+eq('a deck without objectives still gives its title', extractObjectives(NO_CUE).title, 'WEEK 1 – The Enlightenment')
+eq('and invents nothing', extractObjectives(NO_CUE).objectives, '')
+
+console.log('— picking the right file in a week folder —')
+eq('a lecture beats an example set', deckScore('Chapter 6 Lecture.pdf') > deckScore('Chapter 05 examples.pdf'), true)
+eq('solutions are never the deck', deckScore('HmwkSols.pdf') > deckScore('Unit 7 (PPT).pdf'), false)
+eq('practice midterms score negative', deckScore('Midterm 1 Practice.pdf') < 0, true)
+
+console.log('— lectures.tsv wins field by field —')
+const onDisk = [
+  { week: 1, topic: 'My own wording', readings: '', detail: 'What I wrote' },
+  { week: 2, topic: '', readings: '', detail: '' },
+]
+const fresh = [
+  { week: 1, topic: 'Introduction', readings: '1', detail: 'Parsed detail', dates: 'Sep 05' },
+  { week: 2, topic: 'The Economic Problem', readings: '2', detail: 'More parsed', dates: 'Sep 10' },
+]
+const mergeResult = mergeLectures(onDisk, fresh)
+const rows = mergeResult.merged
+eq('a hand-written topic survives', rows[0].topic, 'My own wording')
+eq('a hand-written detail survives', rows[0].detail, 'What I wrote')
+eq('an empty field is filled in', rows[0].readings, '1')
+eq('an empty row is filled in entirely', rows[1].topic, 'The Economic Problem')
+eq('dates come from the parse, not the file', rows[0].dates, 'Sep 05')
+eq('and it knows something changed', mergeResult.changed, true)
+
+eq('re-merging the same thing changes nothing', mergeLectures(rows, fresh).changed, false)
+eq('no file at all is just the parse', mergeLectures(null, fresh).merged.length, 2)
 
 console.log('— freshness —')
 eq('same day', freshness(new Date(2026, 7, 24, 8, 14).getTime(), NOW), 'read at 8:14 AM')

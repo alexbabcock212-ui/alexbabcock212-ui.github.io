@@ -110,11 +110,31 @@ export interface Material {
   modified: number
 }
 
-/** One week of a course, as the syllabus describes it. */
+/** One week of a course, assembled from the syllabus and that week's slides. */
 export interface Lecture {
   /** 1-based week of term. */
   week: number
   topic: string
+  /** The dates the syllabus lists, verbatim — `Sep 17 and 19`. */
+  dates: string
+  /** Chapters or readings, verbatim — `3`, `1-4, 9`. */
+  readings: string
+  /**
+   * What the lecture covers, in more than a title's worth of words.
+   *
+   * Every word comes from the user's own files: an objectives slide where the
+   * deck has one, the deck's title line where it does not, or whatever they
+   * typed into lectures.tsv. Never generated.
+   */
+  detail: string
+  detailSource: 'file' | 'slides' | 'none'
+}
+
+/** A dated row in the syllabus that is not a lecture. */
+export interface Assessment {
+  label: string
+  /** Verbatim from the syllabus — `Oct 06`, `Oct 14 to Oct 18`. */
+  dates: string
 }
 
 /** Where a course's lecture topics came from — the screen says so. */
@@ -139,6 +159,8 @@ export interface CourseFolder {
   /** Week-by-week topics, from lectures.tsv or a parsed syllabus. */
   lectures: Lecture[]
   lecturesSource: LecturesSource
+  /** Midterms, finals and reading weeks, from the syllabus table. */
+  assessments: Assessment[]
 }
 
 export interface Course {
@@ -155,6 +177,7 @@ export interface Course {
   folder: CourseFolder | null
   /** The term's topics, week by week. Empty when no syllabus has been read. */
   lectures: Lecture[]
+  assessments: Assessment[]
   /** Which week of term it is, or null outside the term. */
   currentWeek: number | null
 }

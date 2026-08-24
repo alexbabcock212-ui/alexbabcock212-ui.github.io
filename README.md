@@ -153,28 +153,39 @@ Which calendars get read is a **denylist**, `CALENDAR_EXCLUDE` in
 `worker/wrangler.toml` — so next term's sixth course needs no configuration.
 Google's holiday and birthday feeds are always skipped.
 
-### Lecture topics
+### Lecture topics and summaries
 
-Each course folder can hold a `lectures.tsv`:
+Each course folder holds a `lectures.tsv`, four tab-separated columns:
 
 ```
-1	Introduction
-2	The Economic Problem
-3	Demand and Supply
+1	Introduction	1	Define GDP · Explain why GDP equals aggregate expenditure
+2	The Economic Problem	2
 ```
 
-`npm run scan` writes one for you when it can. It looks for a course outline
-PDF, extracts the text, and parses the week-by-week schedule table that almost
-every syllabus has. On a real outline this got all thirteen weeks, correctly
-skipping the midterm and reading-week rows.
+`npm run scan` writes it. Three sources, best available winning **per field**:
 
-**The file always wins on later scans.** That is the whole safety mechanism:
-syllabus layouts vary far too much to trust a parser outright, so the parse is
-only ever a *draft* written once for a human to correct. Fix a bad row and it
-stays fixed. Delete the file to let the parser try again.
+1. **What you wrote.** Anything non-empty in the file is never overwritten.
+2. **That week's slides.** Decks often open with a learning-objectives slide —
+   measured across twelve real decks, four had one. The rest give up their title
+   line, which is thin but is still the deck's own words. `deckScore` picks the
+   lecture deck out of a folder that also holds problem sets and solutions;
+   without it, week 1 of Econ 1022 summarised itself as "The figure shows the
+   circular flow model", which came from an exercise sheet.
+3. **The syllabus row** — topic, dates and chapters from the schedule table.
 
-Topics are keyed by **week number, not date**, deliberately — a syllabus is often
-last year's, so the topics are right while the dates are a year out.
+Nothing is ever generated. Every word on the Courses screen came out of a file
+in that folder, which is why a week with no readable source shows a topic and
+nothing else rather than a plausible-sounding sentence.
+
+Empty fields fill themselves in as slides appear, and the file is only rewritten
+when a scan actually found something new. Delete it to start over from the PDFs.
+
+Topics key on **week number, not date** — a syllabus is often last year's, so the
+topics are right while the dates are a year out.
+
+The syllabus's undated rows are kept too: `Midterm 1 — Oct 06`, `Reading Week`.
+They are not lectures, so they get no week number; giving them one would
+misalign every week after.
 
 ### Term dates
 

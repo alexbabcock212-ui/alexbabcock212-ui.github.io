@@ -106,7 +106,7 @@ export const eventsOn = (events: CalendarEvent[], day: Date) =>
 
 /** What the syllabus says today's class is about, keyed by `codeKey`. */
 export interface TopicLookup {
-  get(code: string): { week: number; topic: string } | undefined
+  get(code: string): { week: number; topic: string; readings?: string } | undefined
 }
 
 /**
@@ -139,7 +139,12 @@ export function toSchedule(events: CalendarEvent[], topics?: TopicLookup): Slot[
         where: e.location || e.course.code,
         seq,
         title: e.title,
-        facts: lecture ? [{ label: 'TOPIC', text: lecture.topic }] : [],
+        facts: lecture
+          ? [
+              { label: 'TOPIC', text: lecture.topic },
+              ...(lecture.readings ? [{ label: 'READINGS', text: `Ch ${lecture.readings}` }] : []),
+            ]
+          : [],
       }
     }
     if (e.course) {

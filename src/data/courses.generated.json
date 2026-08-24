@@ -1,5 +1,5 @@
 {
-  "scannedAt": 1787604850261,
+  "scannedAt": 1787606022863,
   "root": "~/Desktop/Courses",
   "redacted": false,
   "term": {
@@ -15,7 +15,8 @@
       "fileCount": 0,
       "updated": null,
       "lectures": [],
-      "lecturesSource": "none"
+      "lecturesSource": "none",
+      "assessments": []
     },
     {
       "code": "Econ 2122",
@@ -34,58 +35,124 @@
       "lectures": [
         {
           "week": 1,
-          "topic": "Introduction"
+          "topic": "Introduction",
+          "readings": "1",
+          "detail": "",
+          "dates": "Sep 05",
+          "detailSource": "none"
         },
         {
           "week": 2,
-          "topic": "The Economic Problem"
+          "topic": "The Economic Problem",
+          "readings": "2",
+          "detail": "",
+          "dates": "Sep 10 and 12",
+          "detailSource": "none"
         },
         {
           "week": 3,
-          "topic": "Demand and Supply"
+          "topic": "Demand and Supply",
+          "readings": "3",
+          "detail": "",
+          "dates": "Sep 17 and 19",
+          "detailSource": "none"
         },
         {
           "week": 4,
-          "topic": "Elasticity"
+          "topic": "Elasticity",
+          "readings": "4",
+          "detail": "",
+          "dates": "Sep 24 and 26",
+          "detailSource": "none"
         },
         {
           "week": 5,
-          "topic": "Consumer Theory"
+          "topic": "Consumer Theory",
+          "readings": "9",
+          "detail": "",
+          "dates": "Oct 01 and 03",
+          "detailSource": "none"
         },
         {
           "week": 6,
-          "topic": "Producer Theory"
+          "topic": "Producer Theory",
+          "readings": "10",
+          "detail": "",
+          "dates": "Oct 08 and 10",
+          "detailSource": "none"
         },
         {
           "week": 7,
-          "topic": "Monopoly"
+          "topic": "Monopoly",
+          "readings": "12",
+          "detail": "",
+          "dates": "Oct 22 and 24",
+          "detailSource": "none"
         },
         {
           "week": 8,
-          "topic": "Competitive Markets"
+          "topic": "Competitive Markets",
+          "readings": "11",
+          "detail": "",
+          "dates": "Oct 29 and 31",
+          "detailSource": "none"
         },
         {
           "week": 9,
-          "topic": "Efficiency and Equity"
+          "topic": "Efficiency and Equity",
+          "readings": "5",
+          "detail": "",
+          "dates": "Nov 05 and 07",
+          "detailSource": "none"
         },
         {
           "week": 10,
-          "topic": "Government Interventions"
+          "topic": "Government Interventions",
+          "readings": "6",
+          "detail": "",
+          "dates": "Nov 12 and 14",
+          "detailSource": "none"
         },
         {
           "week": 11,
-          "topic": "Externalities"
+          "topic": "Externalities",
+          "readings": "15",
+          "detail": "",
+          "dates": "Nov 19 and 21",
+          "detailSource": "none"
         },
         {
           "week": 12,
-          "topic": "Public Goods"
+          "topic": "Public Goods",
+          "readings": "16",
+          "detail": "",
+          "dates": "Nov 26 and 28",
+          "detailSource": "none"
         },
         {
           "week": 13,
-          "topic": "Labour Market"
+          "topic": "Labour Market",
+          "readings": "17",
+          "detail": "",
+          "dates": "Dec 03 and 05",
+          "detailSource": "none"
         }
       ],
-      "lecturesSource": "file"
+      "lecturesSource": "file",
+      "assessments": [
+        {
+          "label": "Midterm 1",
+          "dates": "Oct 06"
+        },
+        {
+          "label": "Reading Week",
+          "dates": "Oct 14 to Oct 18"
+        },
+        {
+          "label": "Midterm 2",
+          "dates": "Nov 10"
+        }
+      ]
     },
     {
       "code": "Econ 2150",
@@ -95,7 +162,8 @@
       "fileCount": 0,
       "updated": null,
       "lectures": [],
-      "lecturesSource": "none"
+      "lecturesSource": "none",
+      "assessments": []
     },
     {
       "code": "History 2121",
@@ -105,7 +173,8 @@
       "fileCount": 0,
       "updated": null,
       "lectures": [],
-      "lecturesSource": "none"
+      "lecturesSource": "none",
+      "assessments": []
     },
     {
       "code": "Mos 2310",
@@ -115,7 +184,8 @@
       "fileCount": 0,
       "updated": null,
       "lectures": [],
-      "lecturesSource": "none"
+      "lecturesSource": "none",
+      "assessments": []
     }
   ]
 }

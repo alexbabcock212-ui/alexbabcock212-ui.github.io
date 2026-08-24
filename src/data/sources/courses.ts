@@ -119,6 +119,7 @@ export function toCourses(
       facts: [],
       folder: index.get(key) ?? null,
       lectures: index.get(key)?.lectures ?? [],
+      assessments: index.get(key)?.assessments ?? [],
       currentWeek: week,
     }
   })
@@ -137,6 +138,7 @@ export function toCourses(
       facts: [],
       folder,
       lectures: folder.lectures,
+      assessments: folder.assessments ?? [],
       currentWeek: week,
     }))
 

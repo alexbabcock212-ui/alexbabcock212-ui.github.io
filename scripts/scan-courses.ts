@@ -20,12 +20,23 @@ import { readdirSync, statSync, writeFileSync, readFileSync, existsSync } from '
 import { homedir } from 'node:os'
 import { join, extname, resolve } from 'node:path'
 import { parseCourse } from '../src/data/sources/calendar'
-import type { CourseFolder, Lecture, LecturesSource, Material, MaterialKind } from '../src/data/types'
+import type {
+  Assessment,
+  CourseFolder,
+  Lecture,
+  LecturesSource,
+  Material,
+  MaterialKind,
+} from '../src/data/types'
 // @ts-expect-error - plain JS helper alongside this script, deliberately untyped
 import {
+  deckScore,
+  extractObjectives,
   extractText,
+  findAssessments,
   findSchedule,
   firstDateIn,
+  mergeLectures,
   readLecturesFile,
   writeLecturesFile,
 } from './lib/syllabus.mjs'
@@ -131,49 +142,175 @@ function collect(dir: string, section: string, out: Material[], depth = 0): void
 }
 
 /** Filenames that look like a course outline rather than a lecture deck. */
-const OUTLINE_RE = /(outline|syllabus|schedule|course\s*info|^co\b|CO\d)/i
+const OUTLINE_RE = /(outline|syllabus|schedule|course\s*info|CO\d)/i
+
+/** Decks big enough to be slow to open, and rarely more informative for it. */
+const MAX_PDF_BYTES = 15 * 1024 * 1024
 
 /**
- * Lecture topics for one course.
+ * A ceiling on how many PDFs are opened *per course*.
  *
- * `lectures.tsv` always wins. That is the whole safety mechanism: syllabus
- * layouts vary far too much for a parser to be trusted outright, so the parse
- * is only ever a *draft*, written once for a human to correct and never
- * overwritten afterwards.
+ * Per course, not per scan: a single global budget let a 110-file first course
+ * exhaust it and leave every course after it with nothing, which is a silent
+ * and very confusing failure. Results are cached into lectures.tsv, so this
+ * cost is paid once rather than on every scan.
+ */
+const MAX_EXTRACTIONS_PER_COURSE = 40
+let extractions = 0
+
+async function textOf(path: string): Promise<string | null> {
+  if (extractions >= MAX_EXTRACTIONS_PER_COURSE) return null
+  try {
+    if (statSync(path).size > MAX_PDF_BYTES) return null
+  } catch {
+    return null
+  }
+  extractions++
+  try {
+    return (await extractText(path)) as string
+  } catch {
+    // Image-only or malformed: not an error, just nothing to read.
+    return null
+  }
+}
+
+/** `Week 3`, `Unit 12`, `Lecture 4` → 3, 12, 4. */
+function sectionWeek(section: string): number | null {
+  const m = /^(?:week|unit|lecture|module|topic)\s*#?\s*(\d{1,2})\b/i.exec(section.trim())
+  return m ? Number(m[1]) : null
+}
+
+/**
+ * What each week's own slides say they cover.
+ *
+ * One deck per week — the first that yields anything. Opening every file in a
+ * folder of thirty would cost minutes for no extra signal.
+ */
+async function detailFromSlides(
+  dir: string,
+  materials: Material[],
+): Promise<Map<number, { title: string; objectives: string }>> {
+  const byWeek = new Map<number, Material[]>()
+  for (const m of materials) {
+    if (m.kind !== 'pdf') continue
+    const week = sectionWeek(m.section)
+    if (week === null) continue
+    const list = byWeek.get(week)
+    if (list) list.push(m)
+    else byWeek.set(week, [m])
+  }
+
+  const out = new Map<number, { title: string; objectives: string }>()
+  for (const [week, files] of byWeek) {
+    // Score rather than pattern-match: a week's folder holds the deck next to
+    // problem sets and solutions, and the wrong pick yields "The figure shows
+    // the circular flow model" where the objectives slide was wanted.
+    const ordered = [...files].sort((a, b) => deckScore(b.name) - deckScore(a.name))
+    for (const file of ordered) {
+      if (deckScore(file.name) < 0) break
+      const text = await textOf(join(dir, file.section, file.name))
+      if (!text) continue
+      const found = extractObjectives(text) as { title: string; objectives: string }
+      if (found.objectives || found.title) {
+        out.set(week, found)
+        break
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * Lecture topics and assessments for one course.
+ *
+ * Three layers, best available winning per field: what the user wrote in
+ * `lectures.tsv`, what that week's slides say, and what the syllabus row says.
+ * The file is rewritten only when parsing actually added something, so an
+ * edited row is never disturbed.
  */
 async function scanLectures(
   dir: string,
   materials: Material[],
-): Promise<{ lectures: Lecture[]; source: LecturesSource; firstDate: { month: string; day: number } | null }> {
+): Promise<{
+  lectures: Lecture[]
+  source: LecturesSource
+  assessments: Assessment[]
+  firstDate: { month: string; day: number } | null
+}> {
+  extractions = 0
   const file = join(dir, 'lectures.tsv')
-
   const fromFile = readLecturesFile(file) as Lecture[] | null
-  if (fromFile && fromFile.length > 0) {
-    return { lectures: fromFile, source: 'file', firstDate: null }
-  }
 
-  // Outline-looking names first, then any other PDF as a fallback.
+  // The outline, for the schedule table and the assessment rows.
+  let parsed: Lecture[] = []
+  let assessments: Assessment[] = []
+  let firstDate: { month: string; day: number } | null = null
+
   const pdfs = materials
     .filter((m) => m.kind === 'pdf')
     .sort((a, b) => Number(OUTLINE_RE.test(b.name)) - Number(OUTLINE_RE.test(a.name)))
 
   for (const pdf of pdfs) {
-    const path = join(dir, pdf.section, pdf.name)
-    if (!existsSync(path)) continue
-    try {
-      const text: string = await extractText(path)
-      const found = findSchedule(text) as Lecture[]
-      if (found.length >= 3) {
-        writeLecturesFile(file, found, `Parsed from ${pdf.name}. Check it — then edit as you like.`)
-        return { lectures: found, source: 'pdf', firstDate: firstDateIn(text) }
-      }
-    } catch {
-      // An unreadable or image-only PDF is not an error; the next one may work,
-      // and a hand-written lectures.tsv always will.
+    const text = await textOf(join(dir, pdf.section, pdf.name))
+    if (!text) continue
+    const found = findSchedule(text) as Lecture[]
+    if (found.length >= 3) {
+      parsed = found
+      assessments = findAssessments(text) as Assessment[]
+      firstDate = firstDateIn(text) as { month: string; day: number } | null
+      break
     }
   }
 
-  return { lectures: [], source: 'none', firstDate: null }
+  // Then each week's own deck, which is where real detail comes from. The
+  // deck's heading also stands in as a topic for a course with no syllabus
+  // table — better than an empty row, and still the course's own words.
+  const slides = await detailFromSlides(dir, materials)
+  for (const lecture of parsed) {
+    const found = slides.get(lecture.week)
+    if (!found) continue
+    lecture.topic ||= found.title
+    lecture.detail ||= found.objectives
+  }
+  for (const [week, found] of slides) {
+    if (parsed.some((l) => l.week === week)) continue
+    parsed.push({
+      week,
+      topic: found.title,
+      dates: '',
+      readings: '',
+      detail: found.objectives,
+      detailSource: 'slides',
+    })
+  }
+  parsed.sort((a, b) => a.week - b.week)
+
+  const { merged, changed } = mergeLectures(fromFile, parsed) as {
+    merged: Lecture[]
+    changed: boolean
+  }
+
+  if (merged.length === 0) {
+    return { lectures: [], source: 'none', assessments, firstDate }
+  }
+
+  if (changed) {
+    writeLecturesFile(
+      file,
+      merged,
+      fromFile
+        ? 'Updated from your PDFs. Anything you had written was kept.'
+        : 'Parsed from your PDFs. Check it — then edit as you like.',
+    )
+  }
+
+  // Where each row's detail came from, so the screen can say so.
+  const fileDetail = new Map((fromFile ?? []).map((l) => [l.week, l.detail]))
+  for (const l of merged) {
+    l.detailSource = !l.detail ? 'none' : fileDetail.get(l.week) ? 'file' : 'slides'
+  }
+
+  return { lectures: merged, source: fromFile ? 'file' : 'pdf', assessments, firstDate }
 }
 
 function scanCourse(dir: string, folderName: string, code: string): CourseFolder {
@@ -211,6 +348,7 @@ function scanCourse(dir: string, folderName: string, code: string): CourseFolder
     updated,
     lectures: [],
     lecturesSource: 'none',
+    assessments: [],
   }
 }
 
@@ -289,18 +427,24 @@ if (!existsSync(ROOT)) {
 
     const scanned = scanCourse(entry.path, entry.name, course.code)
 
-    const { lectures, source, firstDate } = await scanLectures(entry.path, scanned.materials)
+    const { lectures, source, assessments, firstDate } = await scanLectures(
+      entry.path,
+      scanned.materials,
+    )
     scanned.lectures = lectures
     scanned.lecturesSource = source
+    scanned.assessments = assessments
     termGuess ??= firstDate
     longestTerm = Math.max(longestTerm, ...lectures.map((l) => l.week), 0)
 
     courses.push(scanned)
 
+    const withDetail = lectures.filter((l) => l.detail).length
     const topics =
       source === 'none'
         ? 'no syllabus'
-        : `${lectures.length} weeks from ${source === 'file' ? 'lectures.tsv' : 'a PDF'}`
+        : `${lectures.length} weeks, ${withDetail} with detail` +
+          (assessments.length ? `, ${assessments.length} dated` : '')
     console.log(
       `ok    ${scanned.code.padEnd(16)} ${String(scanned.fileCount).padStart(4)} files  ` +
         `${scanned.sections.length} sections  ${topics}`,
