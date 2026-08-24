@@ -41,95 +41,79 @@ so and dates it.
 
 ## Setting it up
 
-Roughly twenty minutes, once.
+Two things in the Google Console, then one command.
 
-### 1. Google Cloud Console
+### 1. Google Cloud Console (project `360086150959`)
 
-In [console.cloud.google.com](https://console.cloud.google.com/), on the project
-holding the existing OAuth client:
+1. **Enable APIs:** Calendar, Tasks, Gmail.
+2. **Add scopes** on the consent screen: `calendar.readonly`, `tasks.readonly`,
+   `gmail.readonly`.
+3. **Publishing status → "In production."** In *Testing*, Google expires refresh
+   tokens after **7 days**, which restores the weekly sign-in this whole design
+   exists to remove. Unverified-in-production is correct here; it costs one
+   "unverified app" interstitial during consent.
+4. **Authorized redirect URI** on the Web application client, exactly:
+   `http://localhost:8976/callback`
+5. On that same client, keep **exactly one** client secret. More than one is how
+   you end up copying a secret the Worker does not hold.
 
-1. **Enable the APIs** — Google Calendar API, Google Tasks API, Gmail API.
-2. **OAuth consent screen → Data access**, add three read-only scopes:
-   `calendar.readonly`, `tasks.readonly`, `gmail.readonly`.
-3. **Set publishing status to "In production".** This one matters more than it
-   looks: while the app is in *Testing*, Google expires every refresh token
-   after **seven days**, which would put the sign-in back exactly where this
-   design set out to remove it. In production it does not expire. The app stays
-   unverified, so you will see an "unverified app" interstitial once during
-   step 3 below — *Advanced → Go to … (unsafe)* — because you are the developer
-   and the only user.
-4. Keep the **client ID** and **client secret** to hand.
-
-### 2. The Worker
+### 2. `npm run setup`
 
 ```bash
-cd worker
-npm install
-npx wrangler login
-npx wrangler deploy          # prints https://life-dashboard-api.<you>.workers.dev
+cd worker && npx wrangler login && npx wrangler deploy && cd ..
+npm run setup
 ```
 
-Back in Google Cloud Console, add that origin's callback as an **Authorized
-redirect URI** on the OAuth client:
+It asks for the client ID and the client secret — the secret at a hidden prompt —
+and does everything else: verifies both against Google *before* opening a
+browser, runs consent over a loopback socket, exchanges the code in-process,
+checks the resulting token can actually read all three APIs, stores four secrets
+in the Worker, writes `VITE_API_BASE`, and finishes with a live end-to-end call.
 
-```
-https://life-dashboard-api.<you>.workers.dev/auth/callback
-```
-
-Then mint two secrets of your own and set all four:
+Then:
 
 ```bash
-openssl rand -hex 32         # → DASHBOARD_TOKEN, the phone's key
-openssl rand -hex 32         # → SETUP_TOKEN, gates /auth/start
-
-npx wrangler secret put GOOGLE_CLIENT_ID
-npx wrangler secret put GOOGLE_CLIENT_SECRET
-npx wrangler secret put DASHBOARD_TOKEN
-npx wrangler secret put SETUP_TOKEN
-```
-
-### 3. The one and only Google sign-in
-
-Open, in a browser:
-
-```
-https://life-dashboard-api.<you>.workers.dev/auth/start?key=<SETUP_TOKEN>
-```
-
-Approve the three scopes. The callback page prints a refresh token. Store it:
-
-```bash
-npx wrangler secret put GOOGLE_REFRESH_TOKEN
-```
-
-Secrets take effect immediately; no redeploy needed. Check it works:
-
-```bash
-curl -H "Authorization: Bearer <DASHBOARD_TOKEN>" \
-  https://life-dashboard-api.<you>.workers.dev/api/dashboard | head -c 400
-```
-
-### 4. The site
-
-```bash
-cd ..
-echo 'VITE_API_BASE=https://life-dashboard-api.<you>.workers.dev' > .env
-npm run scan      # reads ~/Desktop/Courses
 npm run deploy
+open "$(grep ^PHONE_URL .secrets.local | cut -d= -f2-)"
 ```
 
-### 5. The phone
+Open that URL once on the phone, then Share → **Add to Home Screen**. That is the
+last time anything asks you for anything.
 
-Open once, with the key on the end:
+### When it breaks
 
+```bash
+npm run doctor
 ```
-https://alexbabcock212-ui.github.io/#key=<DASHBOARD_TOKEN>
-```
 
-The fragment is consumed and stripped from the URL immediately, so it does not
-linger in history or in a screenshot. Then Share → **Add to Home Screen**.
+Read-only. Checks the local config, the Worker, the device key and each Google
+feed, and names the one action that fixes what it found. Run it before anything
+else.
 
-That is the last time anything asks you for anything.
+### Why setup works this way
+
+Doing it by hand failed six times in a row: a client secret stored as a secret
+*name* (twice — `wrangler secret put <value>` is silently valid), a clipboard
+clobbered by the very command that read it, a setup token echoed by a dropped
+shell quote, a refresh token pasted into a chat window because the callback page
+rendered it as plain prose, and a Console change that silently invalidated a step
+which had already passed.
+
+Two properties fix that class of problem, and `scripts/setup.mjs` is built around
+them:
+
+- **No credential is displayed, retyped, or moved between windows.** The
+  authorization code arrives on a loopback socket, the exchange happens in
+  process, and the refresh token goes straight to `wrangler secret put`.
+- **Every step proves itself before the next one runs.** The important one is
+  `probeCredentials` in `scripts/lib/setup-lib.mjs`: it posts a junk
+  authorization code to Google, which validates the *client* before it looks at
+  the code. `invalid_client` means the secret is wrong; `invalid_grant` means the
+  credentials are good; `redirect_uri_mismatch` means step 1.4 was skipped. It
+  consumes nothing, needs no consent, and can be repeated at will.
+
+The Worker deliberately has no authorization endpoints. It had them, and that is
+where the leaked refresh token came from.
 
 ## The 6:45 rule
 
@@ -190,8 +174,9 @@ bundle. `COURSES_PRIVATE=1 npm run scan` records section names and file counts
 only, which the Courses screen renders as a row of section chips instead of a
 file list.
 
-To rotate the device key: `npx wrangler secret put DASHBOARD_TOKEN`, then open
-the site once with the new `#key=…`.
+To rotate anything — the device key, the client secret, the refresh token — run
+`npm run setup` again. It reuses the existing device key unless `.secrets.local`
+is missing, so the phone keeps working.
 
 ## Running it
 
@@ -200,6 +185,8 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # typecheck + production bundle into dist/
 npm run lint
+npm run setup    # credentials: Google -> Worker, verified end to end
+npm run doctor   # read-only diagnosis when something breaks
 npm run check    # data-shaping checks, then an SSR render of every tab
 npm run scan     # read ~/Desktop/Courses into the bundle
 npm run deploy   # scan, build, publish to the gh-pages branch
@@ -257,10 +244,13 @@ src/
     fonts.css             self-hosted Barlow (see below)
     app.css               screen styles, built only from Industry's tokens
 worker/
-  src/index.ts            routing, CORS, the device-key check, the setup flow
+  src/index.ts            two routes: /api/dashboard and /health. Nothing else.
   src/google.ts           token refresh and the three feeds
   wrangler.toml           name and allowed origins; everything else is a secret
 scripts/
+  setup.mjs               the whole credential flow, verified at every step
+  doctor.mjs              read-only diagnosis of the credential chain
+  lib/setup-lib.mjs       shared by both, including the Google probe
   scan-courses.ts         the Desktop scan
   check.ts                data-shaping checks
   render.tsx              SSR render of every tab

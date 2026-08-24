@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "setup": "node scripts/setup.mjs",
+    "doctor": "node scripts/doctor.mjs",
     "scan": "bash scripts/scan.sh",
     "deploy": "bash scripts/deploy.sh",
     "check": "bash scripts/check.sh"
