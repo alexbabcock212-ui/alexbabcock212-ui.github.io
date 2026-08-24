@@ -6,7 +6,7 @@ import DueView from './views/DueView'
 import MailView from './views/MailView'
 import MoneyView from './views/MoneyView'
 import TodayView from './views/TodayView'
-import { dashboard } from './data/dashboard'
+import { useDashboard } from './data/useDashboard'
 import { loadCompletion, saveCompletion } from './data/completion'
 import type { TabId } from './data/types'
 import './styles/fonts.css'
@@ -19,6 +19,7 @@ interface Props {
 }
 
 export default function App({ userName = 'Alex', startTab = 'today' }: Props) {
+  const { dashboard, error, connect } = useDashboard()
   const [tab, setTab] = useState<TabId>(startTab)
   const [done, setDone] = useState(loadCompletion)
   const scroller = useRef<HTMLDivElement>(null)
@@ -41,8 +42,17 @@ export default function App({ userName = 'Alex', startTab = 'today' }: Props) {
         <StatusBar />
 
         <main className="ld-scroll" ref={scroller}>
-          {tab === 'today' && <TodayView userName={userName} dashboard={dashboard} />}
-          {tab === 'courses' && <CoursesView dashboard={dashboard} />}
+          {tab === 'today' && (
+            <TodayView
+              userName={userName}
+              dashboard={dashboard}
+              onConnect={connect}
+              error={error}
+            />
+          )}
+          {tab === 'courses' && (
+            <CoursesView dashboard={dashboard} onConnect={connect} error={error} />
+          )}
           {tab === 'due' && (
             <DueView dashboard={dashboard} done={done} onToggle={toggleDone} />
           )}

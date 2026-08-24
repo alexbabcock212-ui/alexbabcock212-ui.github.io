@@ -13,11 +13,13 @@
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 
-export const SCOPES = [
-  'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/tasks.readonly',
-  'https://www.googleapis.com/auth/gmail.readonly',
-].join(' ')
+/**
+ * Only what is actually used. Tasks and Gmail scopes get added when those
+ * screens are implemented — asking for them now would mean a sterner consent
+ * screen (Gmail's readonly scope is "restricted", Calendar's only "sensitive")
+ * in exchange for access nothing reads.
+ */
+export const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'].join(' ')
 
 /** Public by design — Google expects this in client-side source. */
 export const CLIENT_ID: string = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''

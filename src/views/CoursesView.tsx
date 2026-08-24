@@ -1,7 +1,13 @@
 import EmptyState from '../components/EmptyState'
 import type { Dashboard } from '../data/types'
 
-export default function CoursesView({ dashboard }: { dashboard: Dashboard }) {
+interface Props {
+  dashboard: Dashboard
+  onConnect: () => void
+  error: string | null
+}
+
+export default function CoursesView({ dashboard, onConnect, error }: Props) {
   const { calendar, courses } = dashboard
 
   return (
@@ -20,6 +26,8 @@ export default function CoursesView({ dashboard }: { dashboard: Dashboard }) {
               ? "Nothing on your calendar looks like a class. Courses appear here once the term's timetable lands."
               : 'Connect Google and your courses are read from the recurring class events on your calendar.'
           }
+          action={calendar === 'ready' ? undefined : { label: 'CONNECT GOOGLE', onClick: onConnect }}
+          error={error}
         />
       ) : (
         <div className="ld-courses">
@@ -29,7 +37,7 @@ export default function CoursesView({ dashboard }: { dashboard: Dashboard }) {
                 <h2 className="ld-course__code">{c.code}</h2>
                 <div className="ld-course__meets">{c.meets}</div>
               </div>
-              <div className="ld-course__name">{c.name}</div>
+              {c.name && <div className="ld-course__name">{c.name}</div>}
               {c.progress > 0 && (
                 <div
                   className="ld-course__track"

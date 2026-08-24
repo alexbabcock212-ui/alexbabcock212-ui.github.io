@@ -19,7 +19,7 @@ function SlotBody({ slot }: { slot: Slot }) {
       return (
         <>
           <div className="ld-slot__title">{slot.title}</div>
-          <div className="ld-slot__note">{slot.note}</div>
+          {slot.note && <div className="ld-slot__note">{slot.note}</div>}
         </>
       )
     case 'feature':
@@ -28,17 +28,19 @@ function SlotBody({ slot }: { slot: Slot }) {
           <Corners variant="outset" />
           <div className="ld-lecture__head">
             <div className="ld-lecture__where">{slot.where}</div>
-            <div className="ld-lecture__seq">{slot.seq}</div>
+            {slot.seq && <div className="ld-lecture__seq">{slot.seq}</div>}
           </div>
           <h2 className="ld-lecture__title">{slot.title}</h2>
-          <dl className="ld-deflist">
-            {slot.facts.map((f) => (
-              <div className="ld-deflist__row" key={f.label}>
-                <dt className="ld-deflist__label">{f.label}</dt>
-                <dd>{f.text}</dd>
-              </div>
-            ))}
-          </dl>
+          {slot.facts.length > 0 && (
+            <dl className="ld-deflist">
+              {slot.facts.map((f) => (
+                <div className="ld-deflist__row" key={f.label}>
+                  <dt className="ld-deflist__label">{f.label}</dt>
+                  <dd>{f.text}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
       )
     case 'minor':
@@ -46,18 +48,18 @@ function SlotBody({ slot }: { slot: Slot }) {
         <div className="ld-minor">
           <div className="ld-minor__head">
             <div className="ld-minor__where">{slot.where}</div>
-            <div className="ld-minor__seq">{slot.seq}</div>
+            {slot.seq && <div className="ld-minor__seq">{slot.seq}</div>}
           </div>
           <h2 className="ld-minor__title">{slot.title}</h2>
-          <div className="ld-minor__note">{slot.note}</div>
+          {slot.note && <div className="ld-minor__note">{slot.note}</div>}
         </div>
       )
     case 'highlight':
       return (
         <div className="ld-highlight">
-          <div className="ld-highlight__kicker">{slot.kicker}</div>
+          {slot.kicker && <div className="ld-highlight__kicker">{slot.kicker}</div>}
           <h2 className="ld-highlight__title">{slot.title}</h2>
-          <div className="ld-highlight__note">{slot.note}</div>
+          {slot.note && <div className="ld-highlight__note">{slot.note}</div>}
         </div>
       )
   }
@@ -103,9 +105,11 @@ function Allocation({ allocation }: { allocation: Dashboard['allocation'] }) {
 interface Props {
   userName: string
   dashboard: Dashboard
+  onConnect: () => void
+  error: string | null
 }
 
-export default function TodayView({ userName, dashboard }: Props) {
+export default function TodayView({ userName, dashboard, onConnect, error }: Props) {
   const { calendar, schedule, allocation, lede, chips } = dashboard
   const connected = calendar === 'ready'
 
@@ -135,11 +139,15 @@ export default function TodayView({ userName, dashboard }: Props) {
         )}
       </header>
 
-      {!connected ? (
+      {calendar === 'loading' ? (
+        <EmptyState kicker="CALENDAR" title="Reading your day…" note="One moment." />
+      ) : !connected ? (
         <EmptyState
           kicker="CALENDAR"
-          title="Not connected"
+          title={calendar === 'error' ? 'Could not load' : 'Not connected'}
           note="Connect Google and your day is assembled here each morning — hour by hour, with the hours nobody has claimed."
+          action={{ label: 'CONNECT GOOGLE', onClick: onConnect }}
+          error={error}
         />
       ) : schedule.length === 0 ? (
         <EmptyState
@@ -160,7 +168,7 @@ export default function TodayView({ userName, dashboard }: Props) {
 
           <section className="ld-timeline">
             {schedule.map((slot) => (
-              <div className={`ld-slot${slotModifier(slot)}`} key={slot.time}>
+              <div className={`ld-slot${slotModifier(slot)}`} key={slot.id}>
                 <div className="ld-slot__time">{slot.time}</div>
                 <div className="ld-slot__body">
                   <SlotBody slot={slot} />

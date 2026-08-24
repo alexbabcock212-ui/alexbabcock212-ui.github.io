@@ -26,6 +26,8 @@ export interface AllocSegment {
 }
 
 interface SlotBase {
+  /** Stable across renders — two events can start at the same minute. */
+  id: string
   time: string
 }
 
@@ -40,8 +42,10 @@ export interface PlainSlot extends SlotBase {
 export interface FeatureSlot extends SlotBase {
   kind: 'feature'
   where: string
+  /** Lecture number etc. Blank until a syllabus supplies it. */
   seq: string
   title: string
+  /** Readings and the rest — empty until a syllabus supplies them. */
   facts: { label: string; text: string }[]
 }
 
@@ -52,6 +56,13 @@ export interface MinorSlot extends SlotBase {
   seq: string
   title: string
   note: string
+}
+
+/** A course as the calendar alone can describe it. */
+export interface CalendarCourse {
+  code: string
+  subject: string
+  number: string
 }
 
 /** The block the user is looking forward to. */
