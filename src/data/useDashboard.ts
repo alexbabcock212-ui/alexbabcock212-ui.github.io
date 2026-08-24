@@ -116,6 +116,9 @@ export interface DashboardHandle {
   busy: boolean
   /** This device has no working key — the only thing that ever needs a human. */
   needsKey: boolean
+  /** A key was present and the service turned it down. Distinct from having
+   *  none at all, because the two mean completely different things to fix. */
+  rejected: boolean
   /** True once a key is installed and the service is reachable. */
   configured: boolean
   /** `fresh` bypasses the Worker's short cache. */
@@ -214,6 +217,7 @@ export function useDashboard(): DashboardHandle {
     error,
     busy,
     needsKey: !isConfigured() || key === '' || rejected,
+    rejected,
     configured: isConfigured(),
     refresh,
     installKey,

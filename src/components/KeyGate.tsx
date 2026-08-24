@@ -45,10 +45,18 @@ export default function KeyGate({ onInstall, onClose, rejected }: Props) {
         </h2>
         <p className="ld-sheet__note">
           {isConfigured() ? (
-            <>
-              Paste the dashboard key. It is stored on this device and never asked for again —
-              there is no Google sign-in in this app.
-            </>
+            rejected ? (
+              <>
+                The key this device holds was turned down. It was probably rotated — run{' '}
+                <code>npm run setup</code> on your Mac and install the new one.
+              </>
+            ) : (
+              <>
+                Paste the dashboard key, or open this site once with <code>#key=…</code> on the end
+                of the URL. Either way it is stored here and never asked for again — there is no
+                Google sign-in in this app.
+              </>
+            )
           ) : (
             <>
               This build has no service address. Set <code>VITE_API_BASE</code> in <code>.env</code>{' '}

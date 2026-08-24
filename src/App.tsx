@@ -19,7 +19,7 @@ interface Props {
 }
 
 export default function App({ userName = 'Alex', startTab = 'today' }: Props) {
-  const { dashboard, error, busy, needsKey, refresh, installKey } = useDashboard()
+  const { dashboard, error, busy, needsKey, rejected, refresh, installKey } = useDashboard()
   const [tab, setTab] = useState<TabId>(startTab)
   const [done, setDone] = useState(loadCompletion)
   const [setupOpen, setSetupOpen] = useState(false)
@@ -76,7 +76,7 @@ export default function App({ userName = 'Alex', startTab = 'today' }: Props) {
 
         {setupOpen && (
           <KeyGate
-            rejected={needsKey}
+            rejected={rejected}
             onClose={() => setSetupOpen(false)}
             onInstall={(key) => {
               installKey(key)
