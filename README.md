@@ -3,6 +3,10 @@
 A single-screen morning brief: the day's lectures and blocks, what's due, mail
 grouped into things that want a reply, and where the money sits.
 
+**No source is connected yet.** Every screen renders an honest empty state
+naming what it's waiting on. Nothing on screen is invented — the only live
+values are the ones the clock alone can answer (date, greeting, time).
+
 Built from the `Life Dashboard v2` Claude Design prototype on the **Industry**
 design system, and installable to a phone home screen.
 
@@ -37,7 +41,7 @@ src/
   views/                  one file per tab: Today, Courses, Due, Mail, Money
   data/
     types.ts              the shapes every view reads
-    dashboard.ts          fixture content — the seam for real data
+    dashboard.ts          the dataset + clock-derived values — the seam for real data
     completion.ts         ticked-off deadlines, persisted per day
   styles/
     industry.css          the design system, near-verbatim from the Design project
@@ -94,17 +98,32 @@ npm i -D sharp && node scripts/make-icons.mjs && npm un sharp
 
 ### Wiring real data
 
-The views never construct content — they read the exports in
-`src/data/dashboard.ts`. Swapping the fixtures for live Gmail, Calendar and
-Tasks means returning the same shapes from `src/data/types.ts`; no view changes.
+The views never construct content — they read the single `dashboard` object in
+`src/data/dashboard.ts`, typed by `Dashboard` in `src/data/types.ts`. Every
+collection on it starts empty and every source reports `not-connected`.
 
-Because GitHub Pages is a static host, that split matters: Google's APIs can be
-called from the browser with no client secret, but Canvas sends no CORS headers
-and no consumer brokerage exposes a browser-callable API. Those two stay fixture
-unless a small proxy is added.
+Connecting a source means two things and nothing else: set its `SourceState` to
+`'ready'`, and fill its collections with the existing shapes. Views already
+branch on both, so no view changes.
+
+What each source can and can't do here matters, because GitHub Pages is a static
+host with no server and nowhere to keep a secret:
+
+| Source | Reachable? | Notes |
+| --- | --- | --- |
+| Google Calendar / Tasks / Gmail | yes | Browser-only OAuth, no client secret |
+| Weather | yes | Open-Meteo needs no key and allows browser calls |
+| Canvas | no | Sends no `Access-Control-Allow-Origin`; browsers refuse outright |
+| Brokerage | no | No browser-callable API; Plaid needs a server-side secret |
+
+Money is therefore entered by hand and kept on the device. Canvas would need a
+small proxy (a Cloudflare Worker alongside this site) to be reachable at all.
 
 ## Notes on the port
 
+- The prototype's content was a different person's life — a Georgia Tech CS
+  student. It's been removed rather than retuned: an app that presents invented
+  data as yours is worse than one that shows nothing.
 - The prototype's hard-coded segment widths for *Where the 16 hours go* are
   computed from each segment's hours instead, so the bar and its legend can't
   drift apart.

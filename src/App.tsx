@@ -6,6 +6,7 @@ import DueView from './views/DueView'
 import MailView from './views/MailView'
 import MoneyView from './views/MoneyView'
 import TodayView from './views/TodayView'
+import { dashboard } from './data/dashboard'
 import { loadCompletion, saveCompletion } from './data/completion'
 import type { TabId } from './data/types'
 import './styles/fonts.css'
@@ -40,11 +41,13 @@ export default function App({ userName = 'Alex', startTab = 'today' }: Props) {
         <StatusBar />
 
         <main className="ld-scroll" ref={scroller}>
-          {tab === 'today' && <TodayView userName={userName} />}
-          {tab === 'courses' && <CoursesView />}
-          {tab === 'due' && <DueView done={done} onToggle={toggleDone} />}
-          {tab === 'inbox' && <MailView />}
-          {tab === 'money' && <MoneyView />}
+          {tab === 'today' && <TodayView userName={userName} dashboard={dashboard} />}
+          {tab === 'courses' && <CoursesView dashboard={dashboard} />}
+          {tab === 'due' && (
+            <DueView dashboard={dashboard} done={done} onToggle={toggleDone} />
+          )}
+          {tab === 'inbox' && <MailView dashboard={dashboard} />}
+          {tab === 'money' && <MoneyView dashboard={dashboard} />}
         </main>
 
         <TabBar active={tab} onChange={setTab} />

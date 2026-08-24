@@ -1,8 +1,8 @@
 import Corners from '../components/Corners'
-import { allocation, brief, schedule } from '../data/dashboard'
-import type { Slot } from '../data/types'
+import EmptyState from '../components/EmptyState'
+import { dateKicker, salutation } from '../data/dashboard'
+import type { Dashboard, Slot } from '../data/types'
 
-const plannedHours = allocation.reduce((sum, s) => sum + s.hours, 0)
 const formatHours = (h: number) => `${h}H`
 
 /** The one slot the day pivots on gets the anchored rail; the evening block
@@ -63,80 +63,113 @@ function SlotBody({ slot }: { slot: Slot }) {
   }
 }
 
-export default function TodayView({ userName }: { userName: string }) {
+function Allocation({ allocation }: { allocation: Dashboard['allocation'] }) {
+  const planned = allocation.reduce((sum, s) => sum + s.hours, 0)
+  if (!planned) return null
+
+  return (
+    <section className="ld-alloc">
+      <div className="ld-section-head">
+        <h2 className="ld-section-title">WHERE THE {planned} HOURS GO</h2>
+        <div className="ld-section-meta">PLANNED</div>
+      </div>
+      <div
+        className="ld-alloc__bar"
+        role="img"
+        aria-label={allocation.map((s) => `${s.label} ${formatHours(s.hours)}`).join(', ')}
+      >
+        {allocation.map((s) => (
+          <div
+            key={s.label}
+            style={{ width: `${(s.hours / planned) * 100}%`, background: s.color ?? 'transparent' }}
+          />
+        ))}
+      </div>
+      <div className="ld-alloc__legend">
+        {allocation.map((s) => (
+          <div className="ld-alloc__item" key={s.label}>
+            <i
+              className={`ld-swatch${s.color ? '' : ' ld-swatch--open'}`}
+              style={s.color ? { background: s.color } : undefined}
+            />
+            {s.label} · {formatHours(s.hours)}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+interface Props {
+  userName: string
+  dashboard: Dashboard
+}
+
+export default function TodayView({ userName, dashboard }: Props) {
+  const { calendar, schedule, allocation, lede, chips } = dashboard
+  const connected = calendar === 'ready'
+
   return (
     <div>
       <header className="ld-brief">
         <Corners variant="inset" />
-        <div className="ld-kicker ld-kicker--onDark">{brief.kicker}</div>
+        <div className="ld-kicker ld-kicker--onDark">{dateKicker()}</div>
         <h1 className="ld-brief__title">
-          {brief.salutation}, {userName}.
-          <br />
-          {brief.focus}
+          {salutation()}, {userName}.
+          {connected && schedule.length > 0 && (
+            <>
+              <br />
+              {schedule.length} {schedule.length === 1 ? 'block' : 'blocks'} today.
+            </>
+          )}
         </h1>
-        <p className="ld-brief__lede">{brief.lede}</p>
-        <div className="ld-chips">
-          {brief.chips.map((c) => (
-            <span key={c.label} className={`ld-chip ld-chip--${c.tone}`}>
-              {c.label}
-            </span>
-          ))}
-        </div>
+        {lede && <p className="ld-brief__lede">{lede}</p>}
+        {chips.length > 0 && (
+          <div className="ld-chips">
+            {chips.map((c) => (
+              <span key={c.label} className={`ld-chip ld-chip--${c.tone}`}>
+                {c.label}
+              </span>
+            ))}
+          </div>
+        )}
       </header>
 
-      <section className="ld-alloc">
-        <div className="ld-section-head">
-          <h2 className="ld-section-title">WHERE THE {plannedHours} HOURS GO</h2>
-          <div className="ld-section-meta">PLANNED</div>
-        </div>
-        <div
-          className="ld-alloc__bar"
-          role="img"
-          aria-label={allocation.map((s) => `${s.label} ${formatHours(s.hours)}`).join(', ')}
-        >
-          {allocation.map((s) => (
-            <div
-              key={s.label}
-              style={{
-                width: `${(s.hours / plannedHours) * 100}%`,
-                background: s.color ?? 'transparent',
-              }}
-            />
-          ))}
-        </div>
-        <div className="ld-alloc__legend">
-          {allocation.map((s) => (
-            <div className="ld-alloc__item" key={s.label}>
-              <i
-                className={`ld-swatch${s.color ? '' : ' ld-swatch--open'}`}
-                style={s.color ? { background: s.color } : undefined}
-              />
-              {s.label} · {formatHours(s.hours)}
-            </div>
-          ))}
-        </div>
-      </section>
+      {!connected ? (
+        <EmptyState
+          kicker="CALENDAR"
+          title="Not connected"
+          note="Connect Google and your day is assembled here each morning — hour by hour, with the hours nobody has claimed."
+        />
+      ) : schedule.length === 0 ? (
+        <EmptyState
+          kicker="CALENDAR"
+          title="Nothing scheduled"
+          note="No events on your calendar today. The whole day is unclaimed."
+        />
+      ) : (
+        <>
+          <Allocation allocation={allocation} />
 
-      <div className="ld-timeline__head">
-        <h2 className="ld-section-title">HOUR BY HOUR</h2>
-        <div className="ld-section-meta ld-section-meta--faint">{schedule.length} BLOCKS</div>
-      </div>
-
-      <section className="ld-timeline">
-        {schedule.map((slot) => (
-          <div className={`ld-slot${slotModifier(slot)}`} key={slot.time}>
-            <div className="ld-slot__time">{slot.time}</div>
-            <div className="ld-slot__body">
-              <SlotBody slot={slot} />
+          <div className="ld-timeline__head">
+            <h2 className="ld-section-title">HOUR BY HOUR</h2>
+            <div className="ld-section-meta ld-section-meta--faint">
+              {schedule.length} {schedule.length === 1 ? 'BLOCK' : 'BLOCKS'}
             </div>
           </div>
-        ))}
-      </section>
 
-      <footer className="ld-rebuild">
-        <span className="ld-rebuild__at">{brief.rebuiltAt}</span>
-        <span className="ld-rebuild__text">{brief.rebuiltNote}</span>
-      </footer>
+          <section className="ld-timeline">
+            {schedule.map((slot) => (
+              <div className={`ld-slot${slotModifier(slot)}`} key={slot.time}>
+                <div className="ld-slot__time">{slot.time}</div>
+                <div className="ld-slot__body">
+                  <SlotBody slot={slot} />
+                </div>
+              </div>
+            ))}
+          </section>
+        </>
+      )}
     </div>
   )
 }

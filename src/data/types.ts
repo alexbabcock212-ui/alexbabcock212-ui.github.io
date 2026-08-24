@@ -1,26 +1,21 @@
 /** Every screen the tab bar can reach. */
 export type TabId = 'today' | 'courses' | 'due' | 'inbox' | 'money'
 
+/**
+ * How a screen's underlying source is doing.
+ *
+ * Nothing here is wired to a live source yet, so everything reports
+ * `not-connected`. Views must render honestly in that state rather than
+ * showing content the user could mistake for their own.
+ */
+export type SourceState = 'not-connected' | 'loading' | 'ready' | 'error'
+
 /* ── today ─────────────────────────────────────────────────────────────── */
 
 export interface Chip {
   label: string
   /** `solid` is the day's headline number; `outline` is supporting. */
   tone: 'solid' | 'outline'
-}
-
-export interface Brief {
-  /** e.g. `SUN 23 AUG · BRIEF NO. 148` */
-  kicker: string
-  /** Prefixes the user's name: `Morning, Alex.` */
-  salutation: string
-  /** The second headline line, standing on its own. */
-  focus: string
-  lede: string
-  chips: Chip[]
-  /** Footer: when the brief was last assembled, and what it noticed. */
-  rebuiltAt: string
-  rebuiltNote: string
 }
 
 export interface AllocSegment {
@@ -133,4 +128,32 @@ export interface NetWorth {
   kicker: string
   value: string
   delta: string
+}
+
+/* ── the whole board ───────────────────────────────────────────────────── */
+
+/** Everything the five screens read, plus the health of each source. */
+export interface Dashboard {
+  calendar: SourceState
+  tasks: SourceState
+  mail: SourceState
+  money: SourceState
+
+  /** Today, from the calendar. */
+  allocation: AllocSegment[]
+  schedule: Slot[]
+  /** A one-line read on the day, written only when there is a day to read. */
+  lede: string | null
+  /** Headline figures for the day — free hours and the like. Derived, never
+   *  authored, so they stay empty until a source can compute them. */
+  chips: Chip[]
+
+  deadlines: Deadline[]
+  clusters: Cluster[]
+  courses: Course[]
+
+  netWorth: NetWorth | null
+  moneyStats: Stat[]
+  positions: Position[]
+  outflows: Outflow[]
 }

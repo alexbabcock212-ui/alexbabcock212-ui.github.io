@@ -153,6 +153,36 @@ a:hover { color: var(--color-accent); }
 }
 .ld-page-head--onDark .ld-page-sub { color: var(--color-accent-200); }
 
+/* Shown wherever a screen has no real data. A blueprint placeholder — part of
+   the system, not an error — that never implies content exists. */
+.ld-empty {
+  position: relative;
+  margin: 20px;
+  padding: 18px 16px;
+  border: 1px solid var(--color-neutral-300);
+  background: transparent;
+}
+.ld-empty__kicker {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--color-accent-700);
+}
+.ld-empty__title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.1;
+  margin-top: 4px;
+}
+.ld-empty__note {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+  line-height: 1.5;
+  margin-top: 6px;
+  text-wrap: pretty;
+}
+
 .ld-note {
   margin: 16px 20px 26px;
   font-size: 13px;
