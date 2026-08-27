@@ -4,7 +4,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'today', label: 'TODAY' },
   { id: 'courses', label: 'COURSES' },
   { id: 'due', label: 'DUE' },
-  { id: 'inbox', label: 'MAIL' },
+  { id: 'markets', label: 'MARKETS' },
 ]
 
 interface Props {

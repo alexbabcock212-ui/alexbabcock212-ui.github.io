@@ -17,24 +17,27 @@
       <header>
         <div class="kicker">Life Dashboard</div>
         <h1>Privacy Policy</h1>
-        <p class="updated">Last updated 24 August 2026</p>
+        <p class="updated">Last updated 27 August 2026</p>
       </header>
 
       <p class="lede">
         Life Dashboard is a personal project built and used by one person, Alex Babcock. It is
         not a product, not a service offered to anyone else, and has exactly one user. This page
-        describes what it reads from Google, where that data goes, and how to stop it.
+        describes what it reads from Google, what else it fetches, where that data goes, and how
+        to stop it.
       </p>
 
       <h2>What it is</h2>
       <p>
         Life Dashboard is a private web app that assembles a morning brief — the day's classes
-        hour by hour, what is due in the next fortnight, and unread mail grouped by sender. It
-        reads that from the owner's own Google account and displays it on the owner's own phone.
+        hour by hour, what is due in the next fortnight, and where the North American markets
+        stand. The personal half is read from the owner's own Google account; the market half is
+        public data that belongs to nobody in particular. Both are displayed on the owner's own
+        phone.
       </p>
 
       <h2>What it reads from Google</h2>
-      <p>Three read-only scopes. Nothing is ever written back to any Google service.</p>
+      <p>Two read-only scopes. Nothing is ever written back to any Google service.</p>
 
       <table>
         <thead>
@@ -52,17 +55,31 @@
             <td><code>tasks.readonly</code></td>
             <td>Open (not completed) tasks: list name, title, notes, and due date.</td>
           </tr>
-          <tr>
-            <td><code>gmail.readonly</code></td>
-            <td>
-              Unread inbox messages from the last 14 days, limited to the
-              <code>From</code>, <code>Subject</code> and <code>Date</code> headers.
-              <strong>Message bodies and attachments are never requested, received, or
-              stored.</strong>
-            </td>
-          </tr>
         </tbody>
       </table>
+
+      <p>
+        An earlier version of this app also read <code>gmail.readonly</code> to group unread mail
+        by sender. That screen has been removed and the scope with it: no Gmail request is made
+        by any part of this app any more.
+      </p>
+
+      <h2>What it reads that is not yours</h2>
+      <p>
+        The market screen is assembled from two kinds of public feed, requested by the Worker
+        with no credential of any sort and no identifier for the person looking at them:
+      </p>
+      <ul>
+        <li>
+          <strong>Quotes</strong> — last price, previous close and the current session's path for
+          a fixed list of fourteen indexes, rates, currencies and commodities.
+        </li>
+        <li>
+          <strong>Headlines</strong> — the public RSS feeds published by CNBC and CBC. Only
+          headline text, timestamp and link are read. No article body is fetched or stored, and
+          every headline is shown with its source and links back to it.
+        </li>
+      </ul>
 
       <h2>Where the data goes</h2>
       <ul>

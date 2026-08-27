@@ -1,5 +1,5 @@
 /**
- * The dashboard's back end: one route that reads Google, and nothing else.
+ * The dashboard's back end: one route that reads Google and the markets.
  *
  * It exists for a single reason. Google's browser-only token flow issues no
  * refresh token, so a purely static app has to re-authorize roughly hourly.
@@ -11,12 +11,29 @@
  * `wrangler secret put` without ever being rendered in a browser. An earlier
  * version served that flow from this Worker and the token ended up pasted into
  * a chat window; a page that displays a credential is a page that invites it.
+ *
+ * The market brief rides along in the same payload. It needs no credential at
+ * all, but it does need somewhere with CORS headers and an XML parser, and
+ * this is already that place.
  */
 import type { Env } from './env'
 import { accessToken, fetchAll, fetchCalendarList } from './google'
+import { fetchMarkets } from './markets'
+import type { MarketsPayload } from './markets'
 
 /** How long a fetched payload may be reused. `?fresh=1` skips it. */
 const CACHE_SECONDS = 120
+
+/**
+ * How long the last board that actually worked is kept as a fallback.
+ *
+ * The quote host rate-limits shared datacentre addresses, and a 429 that lasts
+ * a minute must not blank a screen that was correct two minutes ago. Serving
+ * the last good board is honest here in a way it would not be for a calendar:
+ * every row carries the timestamp of its own last print and the screen shows
+ * it, so a stale board says on its face that it is stale.
+ */
+const LAST_GOOD_SECONDS = 1800
 
 /* ── CORS ──────────────────────────────────────────────────────────────── */
 
@@ -66,6 +83,37 @@ function bearer(request: Request): string {
   return header.startsWith('Bearer ') ? header.slice(7).trim() : ''
 }
 
+/* ── the market board ──────────────────────────────────────────────────── */
+
+async function marketsWithFallback(origin: string): Promise<MarketsPayload> {
+  const key = new Request(`${origin}/__cache/markets`)
+  const markets = await fetchMarkets()
+
+  if (markets.quotes.ok) {
+    await caches.default.put(
+      key,
+      new Response(JSON.stringify(markets), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': `max-age=${LAST_GOOD_SECONDS}`,
+        },
+      }),
+    )
+    return markets
+  }
+
+  const hit = await caches.default.match(key)
+  if (!hit) return markets
+
+  // Only the quotes fall back. Headlines that were read this time are newer
+  // than the ones stored with that board, and should not be rolled back.
+  const last = (await hit.json()) as MarketsPayload
+  return {
+    quotes: last.quotes,
+    headlines: markets.headlines.ok ? markets.headlines : last.headlines,
+  }
+}
+
 /* ── the API ───────────────────────────────────────────────────────────── */
 
 async function dashboard(request: Request, url: URL, env: Env, cors: Record<string, string>) {
@@ -89,11 +137,13 @@ async function dashboard(request: Request, url: URL, env: Env, cors: Record<stri
     }
   }
 
-  const payload = await fetchAll(env)
+  // The two halves share nothing but the cache, so they run side by side.
+  const [google, markets] = await Promise.all([fetchAll(env), marketsWithFallback(url.origin)])
+  const payload = { ...google, ...markets }
   const body = JSON.stringify(payload)
 
   // Only cache a read that actually worked; caching an outage would extend it.
-  if (payload.calendar.ok || payload.tasks.ok || payload.mail.ok) {
+  if (payload.calendar.ok || payload.tasks.ok || payload.quotes.ok) {
     await cache.put(
       cacheKey,
       new Response(body, {

@@ -1,5 +1,5 @@
 {
-  "scannedAt": 1787606022863,
+  "scannedAt": 1787871761811,
   "root": "~/Desktop/Courses",
   "redacted": false,
   "term": {
@@ -10,12 +10,63 @@
     {
       "code": "Classics 2440",
       "folder": "Classics 2440",
-      "sections": [],
-      "materials": [],
-      "fileCount": 0,
-      "updated": null,
-      "lectures": [],
-      "lecturesSource": "none",
+      "sections": [
+        "Week 1",
+        "Week 2"
+      ],
+      "materials": [
+        {
+          "name": "CS 2440A 650 Course Outline and Syllabus Sept 2.pdf",
+          "section": "",
+          "kind": "pdf",
+          "modified": 1787799312141
+        },
+        {
+          "name": "2440 Lecture 1.pdf",
+          "section": "Week 1",
+          "kind": "pdf",
+          "modified": 1787799675085
+        },
+        {
+          "name": "2440 Lecture 2.pdf",
+          "section": "Week 1",
+          "kind": "pdf",
+          "modified": 1787799744150
+        },
+        {
+          "name": "2440 Lecture 3.pdf",
+          "section": "Week 2",
+          "kind": "pdf",
+          "modified": 1787799808719
+        },
+        {
+          "name": "2440 Lecture 4.pdf",
+          "section": "Week 2",
+          "kind": "pdf",
+          "modified": 1787799834755
+        }
+      ],
+      "fileCount": 5,
+      "updated": 1787799834755,
+      "lectures": [
+        {
+          "week": 1,
+          "topic": "CS 2440A/B Alexander the Great",
+          "dates": "",
+          "readings": "",
+          "detail": "Learning about one of the most famous people in all of recorded history · Learning about the history and culture of Ancient Greece, Macedonia, and the Ancient Near East · Learning how to do ancient history · Developing and answering historical questions",
+          "detailSource": "slides"
+        },
+        {
+          "week": 2,
+          "topic": "CS 2440A/B Alexander the Great",
+          "dates": "",
+          "readings": "",
+          "detail": "",
+          "detailSource": "none"
+        }
+      ],
+      "lecturesSource": "pdf",
       "assessments": []
     },
     {

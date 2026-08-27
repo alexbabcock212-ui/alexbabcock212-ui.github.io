@@ -1,11 +1,13 @@
 /**
  * Google, as far as this Worker is concerned.
  *
- * One refresh token in, three read-only feeds out. Every fetch is best-effort
- * and reports its own failure: a dead Gmail call must not blank the timetable,
+ * One refresh token in, two read-only feeds out. Every fetch is best-effort
+ * and reports its own failure: a dead Tasks call must not blank the timetable,
  * so each source returns `{ ok: false, error }` instead of throwing.
  */
 import type { Env } from './env'
+import { message, settle } from './feed'
+import type { Feed } from './feed'
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
@@ -86,29 +88,13 @@ export interface RawTask {
   list: string
 }
 
-export interface RawMessage {
-  id: string
-  threadId: string
-  /** Display name where Gmail supplies one, otherwise the bare address. */
-  from: string
-  address: string
-  subject: string
-  /** Epoch ms. */
-  date: number
-}
-
-export interface Feed<T> {
-  ok: boolean
-  items: T[]
-  error?: string
-}
+export type { Feed }
 
 export interface Payload {
   fetchedAt: number
   calendar: Feed<RawEvent>
   allDay: Feed<RawAllDay>
   tasks: Feed<RawTask>
-  mail: Feed<RawMessage>
 }
 
 /**
@@ -125,12 +111,12 @@ export const HORIZON_DAYS = 35
 /**
  * Cloudflare allows 50 subrequests per request on this plan, and one dashboard
  * read spends them fast: a token refresh, a calendar list, one per calendar,
- * one per task list, and — the expensive part — one per Gmail message.
- * Exceeding the limit does not degrade, it throws, which is how moving from one
- * calendar to eight turned a working Worker into HTTP 500.
+ * and one per task list. Exceeding the limit does not degrade, it throws,
+ * which is how moving from one calendar to eight turned a working Worker into
+ * HTTP 500.
  *
- * Worst case with the caps below:
- *   1 + 1 + MAX_CALENDARS + 1 + 3 + 1 + MAIL_LIMIT  =  44
+ * Worst case with the caps below, plus the market brief's four:
+ *   1 + 1 + MAX_CALENDARS + 1 + 3 + 4  =  22
  */
 export const MAX_CALENDARS = 12
 
@@ -364,129 +350,35 @@ export async function fetchTasks(token: string): Promise<RawTask[]> {
   return perList.flat()
 }
 
-/* ── mail ──────────────────────────────────────────────────────────────── */
-
-interface ApiMessageRef {
-  id: string
-  threadId: string
-}
-
-interface ApiMessage {
-  id: string
-  threadId: string
-  internalDate?: string
-  payload?: { headers?: { name: string; value: string }[] }
-}
-
-/**
- * Unread inbox mail from the last fortnight. Senders, subjects and timestamps.
- *
- * Gmail returns a `snippet` — an excerpt of the message body — on every read,
- * `format=metadata` included. Nothing displays it, so it is dropped here rather
- * than carried to the device: it is the difference between the privacy policy
- * saying "no message bodies" and having to qualify it.
- */
-const MAIL_QUERY = 'is:unread in:inbox newer_than:14d'
-const MAIL_LIMIT = 25
-
-/** `Jane Doe <jane@x.com>` → name and address, either of which may be absent. */
-function parseFrom(value: string): { from: string; address: string } {
-  const angled = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(value)
-  if (!angled) {
-    const bare = value.trim()
-    return { from: bare, address: bare }
-  }
-  const address = angled[2].trim()
-  const name = angled[1].replace(/^"|"$/g, '').trim()
-  return { from: name || address, address }
-}
-
-export async function fetchMail(token: string): Promise<RawMessage[]> {
-  const params = new URLSearchParams({ q: MAIL_QUERY, maxResults: String(MAIL_LIMIT) })
-  const list = await api<{ messages?: ApiMessageRef[] }>(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`,
-    token,
-  )
-
-  const refs = list.messages ?? []
-  if (refs.length === 0) return []
-
-  // `format=metadata` with an explicit header list is the narrowest read Gmail
-  // offers: subject lines and senders, never message bodies.
-  const headerParams = new URLSearchParams({ format: 'metadata' })
-  for (const h of ['From', 'Subject', 'Date']) headerParams.append('metadataHeaders', h)
-
-  const messages = await pooled(refs, 8, async (ref) => {
-    try {
-      return await api<ApiMessage>(
-        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${ref.id}?${headerParams}`,
-        token,
-      )
-    } catch {
-      // One unreadable message should not cost us the other thirty-nine.
-      return null
-    }
-  })
-
-  return messages
-    .filter((m): m is ApiMessage => m !== null)
-    .map((m): RawMessage => {
-      const headers = new Map(
-        (m.payload?.headers ?? []).map((h) => [h.name.toLowerCase(), h.value]),
-      )
-      const { from, address } = parseFrom(headers.get('from') ?? '')
-      return {
-        id: m.id,
-        threadId: m.threadId,
-        from,
-        address,
-        subject: headers.get('subject')?.trim() ?? '(no subject)',
-        date: Number(m.internalDate ?? 0),
-      }
-    })
-    .sort((a, b) => b.date - a.date)
-}
-
 /* ── everything at once ────────────────────────────────────────────────── */
 
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
-
 /**
- * All three feeds in parallel, each allowed to fail on its own.
+ * Both Google feeds in parallel, each allowed to fail on its own.
  *
  * A token failure is the exception: nothing can succeed without one, so it is
- * reported identically on every feed rather than three times over.
+ * reported identically on every feed rather than twice over.
  */
 export async function fetchAll(env: Env, now = new Date()): Promise<Payload> {
   let token: string
   try {
     token = await accessToken(env)
   } catch (e) {
-    const error = message(e)
-    const dead = { ok: false, items: [], error }
-    return { fetchedAt: Date.now(), calendar: dead, allDay: dead, tasks: dead, mail: dead }
+    const dead = { ok: false, items: [], error: message(e) }
+    return { fetchedAt: Date.now(), calendar: dead, allDay: dead, tasks: dead }
   }
 
-  const [calendar, tasks, mail] = await Promise.all([
+  const [calendar, tasks] = await Promise.all([
     fetchCalendar(token, now, env).then(
       (r) => ({ timed: r.timed, allDay: r.allDay, error: undefined as string | undefined }),
       (e) => ({ timed: [] as RawEvent[], allDay: [] as RawAllDay[], error: message(e) }),
     ),
-    fetchTasks(token).then(
-      (items) => ({ items, error: undefined as string | undefined }),
-      (e) => ({ items: [] as RawTask[], error: message(e) }),
-    ),
-    fetchMail(token).then(
-      (items) => ({ items, error: undefined as string | undefined }),
-      (e) => ({ items: [] as RawMessage[], error: message(e) }),
-    ),
+    settle(fetchTasks(token)),
   ])
 
   return {
     fetchedAt: Date.now(),
     calendar: { ok: !calendar.error, items: calendar.timed, error: calendar.error },
     allDay: { ok: !calendar.error, items: calendar.allDay, error: calendar.error },
-    tasks: { ok: !tasks.error, items: tasks.items, error: tasks.error },
-    mail: { ok: !mail.error, items: mail.items, error: mail.error },
+    tasks,
   }
 }

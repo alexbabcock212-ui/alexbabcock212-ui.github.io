@@ -1,12 +1,14 @@
 /**
  * The wire format between the Worker and this app.
  *
- * Kept deliberately close to what Google returns: the Worker's job is to hold
- * the refresh token and nothing more, so all interpretation happens here, on
- * the device, where it can be changed without a redeploy of the back end.
+ * Kept deliberately close to what the upstream services return: the Worker's
+ * job is to hold the refresh token and reach the hosts a browser cannot, so
+ * all interpretation happens here, on the device, where it can be changed
+ * without a redeploy of the back end.
  *
- * These declarations mirror `worker/src/google.ts`. Two copies is the cost of
- * the two halves shipping separately; keep them in step.
+ * These declarations mirror `worker/src/google.ts` and `worker/src/markets.ts`.
+ * Two copies is the cost of the two halves shipping separately; keep them in
+ * step.
  */
 
 export interface RawEvent {
@@ -37,14 +39,25 @@ export interface RawTask {
   list: string
 }
 
-export interface RawMessage {
+export interface RawQuote {
+  /** The ticker the board is keyed off, e.g. `^GSPC`. */
+  symbol: string
+  price: number
+  /** The previous session's close — what the day's change is measured from. */
+  previousClose: number
+  /** The session so far, downsampled. Empty when there is nothing to draw. */
+  spark: number[]
+  /** Last print, epoch ms. */
+  at: number
+}
+
+export interface RawHeadline {
   id: string
-  threadId: string
-  from: string
-  address: string
-  subject: string
-  /** Epoch ms. */
-  date: number
+  title: string
+  source: string
+  url: string
+  /** Published, epoch ms. */
+  at: number
 }
 
 export interface Feed<T> {
@@ -58,7 +71,8 @@ export interface Payload {
   calendar: Feed<RawEvent>
   allDay: Feed<RawAllDay>
   tasks: Feed<RawTask>
-  mail: Feed<RawMessage>
+  quotes: Feed<RawQuote>
+  headlines: Feed<RawHeadline>
 }
 
 export const emptyFeed = <T,>(): Feed<T> => ({ ok: false, items: [] })
@@ -68,5 +82,6 @@ export const emptyPayload = (): Payload => ({
   calendar: emptyFeed(),
   allDay: emptyFeed(),
   tasks: emptyFeed(),
-  mail: emptyFeed(),
+  quotes: emptyFeed(),
+  headlines: emptyFeed(),
 })

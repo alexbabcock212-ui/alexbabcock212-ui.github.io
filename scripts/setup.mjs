@@ -292,7 +292,7 @@ async function main() {
     die(
       'At least one API is not readable with this token.',
       'Usually a disabled API or a missing scope on the consent screen.',
-      'Enable Calendar, Tasks and Gmail APIs, add the three readonly scopes,',
+      'Enable the Calendar and Tasks APIs, add the two readonly scopes,',
       'then run npm run setup again.',
     )
   }
@@ -330,7 +330,7 @@ async function main() {
   try {
     const payload = await workerDashboard(base, deviceKey)
     let broken = 0
-    for (const feed of ['calendar', 'allDay', 'tasks', 'mail']) {
+    for (const feed of ['calendar', 'allDay', 'tasks', 'quotes', 'headlines']) {
       const f = payload[feed] ?? {}
       const n = (f.items ?? []).length
       if (f.ok) ok(feed, `${n} item${n === 1 ? '' : 's'}`)

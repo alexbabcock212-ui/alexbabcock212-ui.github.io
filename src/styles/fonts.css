@@ -3,19 +3,19 @@
    offline the whole design fell back to system-ui.
 
    Weights are exactly what the stylesheets use and no more:
-     Barlow            400 body, 500 slot and deadline titles
-     Barlow Condensed  400 kickers/labels/times, 600 section and card titles,
-                       700 page titles and the net-worth figure
+     Barlow            400 body, 500 row and slot titles, 600 every headline
+     Barlow Condensed  500 labels, times and meta, 600 eyebrows, section rules
+                       and the tab bar
    latin + latin-ext only — enough for European names, skipping Vietnamese. */
 
 @import '@fontsource/barlow/latin-400.css';
 @import '@fontsource/barlow/latin-ext-400.css';
 @import '@fontsource/barlow/latin-500.css';
 @import '@fontsource/barlow/latin-ext-500.css';
+@import '@fontsource/barlow/latin-600.css';
+@import '@fontsource/barlow/latin-ext-600.css';
 
-@import '@fontsource/barlow-condensed/latin-400.css';
-@import '@fontsource/barlow-condensed/latin-ext-400.css';
+@import '@fontsource/barlow-condensed/latin-500.css';
+@import '@fontsource/barlow-condensed/latin-ext-500.css';
 @import '@fontsource/barlow-condensed/latin-600.css';
 @import '@fontsource/barlow-condensed/latin-ext-600.css';
-@import '@fontsource/barlow-condensed/latin-700.css';
-@import '@fontsource/barlow-condensed/latin-ext-700.css';

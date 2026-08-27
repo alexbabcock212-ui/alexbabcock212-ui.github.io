@@ -1,5 +1,5 @@
 /** Every screen the tab bar can reach. */
-export type TabId = 'today' | 'courses' | 'due' | 'inbox'
+export type TabId = 'today' | 'courses' | 'due' | 'markets'
 
 /**
  * How a screen's underlying source is doing.
@@ -83,16 +83,55 @@ export interface Deadline {
   at: number | null
 }
 
-/* ── inbox ─────────────────────────────────────────────────────────────── */
+/* ── markets ───────────────────────────────────────────────────────────── */
 
-export interface Cluster {
+/** Which way a row moved. `flat` is an exact match, not a rounding. */
+export type Direction = 'up' | 'down' | 'flat'
+
+/** One line of the board, formatted for reading rather than for arithmetic. */
+export interface Quote {
+  symbol: string
+  label: string
+  /** What the row is, in two or three words — `Toronto`, `Treasury yield`. */
+  sub: string
+  /** The level: `7,730.99`, `4.67%`, `1.3852`. */
+  value: string
+  /** Signed and in the row's own unit: `+55.29`, `+0.8 bp`. */
+  change: string
+  /** Signed percent. Empty on a yield, where a percent of a percent misleads. */
+  percent: string
+  direction: Direction
+  /** The session's path, normalised 0–1. Empty when there is too little to draw. */
+  spark: number[]
+  /** When the row last printed, e.g. `4:00 PM`. */
+  time: string
+}
+
+/** A band of the board — North America, rates, commodities, overseas. */
+export interface QuoteGroup {
+  title: string
+  /** Breadth, counted from the rows themselves: `4 UP · 1 DOWN`. */
+  meta: string
+  quotes: Quote[]
+}
+
+export interface Headline {
   id: string
-  name: string
-  count: string
-  summary: string
-  tag: string
-  /** Wants a reply — gets the accent edge and the filled tag. */
-  live: boolean
+  title: string
+  source: string
+  url: string
+  /** How old, e.g. `2H AGO`. */
+  when: string
+}
+
+/** Everything the MARKETS screen reads. */
+export interface Markets {
+  /** The row the screen leads with, when the board has one. */
+  lead: Quote | null
+  groups: QuoteGroup[]
+  headlines: Headline[]
+  /** A factual read on the session. Derived from the rows, never authored. */
+  brief: string | null
 }
 
 /* ── courses ───────────────────────────────────────────────────────────── */
@@ -188,7 +227,8 @@ export interface Course {
 export interface Dashboard {
   calendar: SourceState
   tasks: SourceState
-  mail: SourceState
+  quotes: SourceState
+  news: SourceState
 
   /** Today, from the calendar. */
   allocation: AllocSegment[]
@@ -200,8 +240,8 @@ export interface Dashboard {
   chips: Chip[]
 
   deadlines: Deadline[]
-  clusters: Cluster[]
   courses: Course[]
+  markets: Markets
 
   /** When the sources were last read, epoch ms. Null if never. */
   fetchedAt: number | null

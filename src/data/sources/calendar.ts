@@ -207,8 +207,8 @@ export function toAllocation(events: CalendarEvent[]): AllocSegment[] {
   const unclaimed = Math.max(0, waking - inClass - elsewhere)
 
   return [
-    { label: 'CLASS', hours: round(inClass), color: 'var(--color-accent-900)' },
-    { label: 'EVERYTHING ELSE', hours: round(elsewhere), color: 'var(--color-accent)' },
+    { label: 'CLASS', hours: round(inClass), color: 'var(--accent)' },
+    { label: 'EVERYTHING ELSE', hours: round(elsewhere), color: 'var(--accent-mid)' },
     { label: 'UNCLAIMED', hours: round(unclaimed), color: null },
   ].filter((s) => s.hours > 0)
 }

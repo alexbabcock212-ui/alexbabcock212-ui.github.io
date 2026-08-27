@@ -32,3 +32,6 @@ dist-ssr
 
 # Bundled output from scripts/check.sh
 .check
+
+# tsc --noEmit still writes this when the config is composite.
+*.tsbuildinfo

@@ -4,13 +4,14 @@ import StatusBar from './components/StatusBar'
 import TabBar from './components/TabBar'
 import CoursesView from './views/CoursesView'
 import DueView from './views/DueView'
-import MailView from './views/MailView'
+import MarketsView from './views/MarketsView'
 import TodayView from './views/TodayView'
 import { useDashboard } from './data/useDashboard'
 import { loadCompletion, saveCompletion } from './data/completion'
 import type { TabId } from './data/types'
 import './styles/fonts.css'
 import './styles/industry.css'
+import './styles/theme.css'
 import './styles/app.css'
 
 interface Props {
@@ -67,8 +68,13 @@ export default function App({ userName = 'Alex', startTab = 'today' }: Props) {
               onSetUp={openSetup}
             />
           )}
-          {tab === 'inbox' && (
-            <MailView dashboard={dashboard} needsKey={needsKey} onSetUp={openSetup} />
+          {tab === 'markets' && (
+            <MarketsView
+              dashboard={dashboard}
+              busy={busy}
+              onRefresh={() => refresh(true)}
+              error={error}
+            />
           )}
         </main>
 

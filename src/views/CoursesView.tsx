@@ -143,6 +143,25 @@ function Materials({ course }: { course: Course }) {
   )
 }
 
+/**
+ * What the drawer says it holds.
+ *
+ * A course whose only extra is a list of exam dates has no lectures and no
+ * files to count, and an empty label under a lone chevron reads as a bug. It
+ * falls back to naming the drawer rather than counting nothing.
+ */
+function drawerLabel(c: Course): string {
+  const folder = c.folder
+  const parts = [
+    c.lectures.length > 0 && `${c.lectures.length} LECTURES`,
+    folder && folder.fileCount > 0 &&
+      `${folder.fileCount} ${folder.fileCount === 1 ? 'FILE' : 'FILES'}`,
+    folder?.updated != null && shortDate(folder.updated),
+  ].filter(Boolean)
+
+  return parts.length > 0 ? parts.join(' · ') : 'TERM DATES'
+}
+
 interface Props {
   dashboard: Dashboard
   needsKey: boolean
@@ -223,13 +242,7 @@ export default function CoursesView({ dashboard, needsKey, onSetUp, error }: Pro
                       aria-expanded={expanded}
                       onClick={() => setOpen(expanded ? null : c.code)}
                     >
-                      <span className="ld-course__count">
-                        {c.lectures.length > 0 && `${c.lectures.length} LECTURES`}
-                        {c.lectures.length > 0 && folder && folder.fileCount > 0 && ' · '}
-                        {folder && folder.fileCount > 0 &&
-                          `${folder.fileCount} ${folder.fileCount === 1 ? 'FILE' : 'FILES'}`}
-                        {folder?.updated != null && ` · ${shortDate(folder.updated)}`}
-                      </span>
+                      <span className="ld-course__count">{drawerLabel(c)}</span>
                       <span className="ld-course__chevron" aria-hidden="true">
                         {expanded ? '–' : '+'}
                       </span>

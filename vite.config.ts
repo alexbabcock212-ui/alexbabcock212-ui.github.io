@@ -13,12 +13,12 @@ export default defineConfig({
         name: 'Life Dashboard',
         // iOS truncates home-screen labels around 12 characters.
         short_name: 'Dashboard',
-        description: "A morning brief that pulls the day together: lectures, deadlines, mail, coursework.",
-        // The only literal colours in the project: a manifest cannot read the
-        // design system's CSS custom properties. Both are --color-accent-900,
-        // so the launch splash matches the header it opens onto.
-        theme_color: '#1d2d3d',
-        background_color: '#1d2d3d',
+        description: "A morning brief that pulls the day together: lectures, deadlines, coursework, and where the markets stand.",
+        // The only literal colours outside src/styles/theme.css: a manifest
+        // cannot read CSS custom properties. Both are --bg, so the launch
+        // splash matches the ground the app opens onto.
+        theme_color: '#0d0f13',
+        background_color: '#0d0f13',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

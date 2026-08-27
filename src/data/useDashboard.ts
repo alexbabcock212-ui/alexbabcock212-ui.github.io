@@ -16,7 +16,7 @@ import {
 } from './sources/calendar'
 import type { CalendarEvent } from './sources/calendar'
 import { toCourses } from './sources/courses'
-import { toClusters } from './sources/mail'
+import { emptyMarkets, toMarkets } from './sources/markets'
 import { toDeadlines } from './sources/tasks'
 import type { Dashboard } from './types'
 
@@ -47,14 +47,15 @@ function emptyDashboard(now = new Date()): Dashboard {
   return {
     calendar: 'not-connected',
     tasks: 'not-connected',
-    mail: 'not-connected',
+    quotes: 'not-connected',
+    news: 'not-connected',
     allocation: [],
     schedule: [],
     lede: null,
     chips: [],
     deadlines: [],
-    clusters: [],
     courses: toCourses([], now, courseFolders, term),
+    markets: emptyMarkets(),
     fetchedAt: null,
   }
 }
@@ -77,7 +78,8 @@ function derive(payload: Payload, now: Date): Dashboard {
   return {
     calendar: payload.calendar.ok ? 'ready' : 'error',
     tasks: payload.tasks.ok ? 'ready' : 'error',
-    mail: payload.mail.ok ? 'ready' : 'error',
+    quotes: payload.quotes.ok ? 'ready' : 'error',
+    news: payload.headlines.ok ? 'ready' : 'error',
 
     allocation,
     schedule: toSchedule(todays, topics),
@@ -85,8 +87,8 @@ function derive(payload: Payload, now: Date): Dashboard {
     lede: toLede(todays),
 
     deadlines: toDeadlines(payload.tasks.items, payload.allDay.items, now),
-    clusters: toClusters(payload.mail.items, now),
     courses,
+    markets: toMarkets(payload.quotes.items, payload.headlines.items, now),
 
     fetchedAt: payload.fetchedAt || null,
   }
@@ -98,13 +100,17 @@ function feedError(payload: Payload): string | null {
     [
       ['Calendar', payload.calendar],
       ['Tasks', payload.tasks],
-      ['Mail', payload.mail],
+      ['Markets', payload.quotes],
+      ['News', payload.headlines],
     ] as const
   ).filter(([, feed]) => !feed.ok)
 
   if (broken.length === 0) return null
-  if (broken.length === 3) return broken[0][1].error ?? 'Nothing could be read.'
-  return `${broken.map(([name]) => name).join(' and ')} could not be read.`
+  if (broken.length === 4) return broken[0][1].error ?? 'Nothing could be read.'
+
+  const names = broken.map(([name]) => name)
+  const last = names.pop()!
+  return `${names.length > 0 ? `${names.join(', ')} and ${last}` : last} could not be read.`
 }
 
 /* ── the hook ──────────────────────────────────────────────────────────── */

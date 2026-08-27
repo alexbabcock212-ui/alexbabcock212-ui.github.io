@@ -1,4 +1,3 @@
-import Corners from '../components/Corners'
 import EmptyState from '../components/EmptyState'
 import { dateKicker, freshness, salutation } from '../data/dashboard'
 import { MORNING_HOUR, MORNING_MINUTE } from '../data/morning'
@@ -26,7 +25,6 @@ function SlotBody({ slot }: { slot: Slot }) {
     case 'feature':
       return (
         <div className="ld-lecture">
-          <Corners variant="outset" />
           <div className="ld-lecture__head">
             <div className="ld-lecture__where">{slot.where}</div>
             {slot.seq && <div className="ld-lecture__seq">{slot.seq}</div>}
@@ -130,15 +128,13 @@ export default function TodayView({
   return (
     <div>
       <header className="ld-brief">
-        <Corners variant="inset" />
-        <div className="ld-kicker ld-kicker--onDark">{dateKicker()}</div>
+        <div className="ld-kicker">{dateKicker()}</div>
         <h1 className="ld-brief__title">
           {salutation()}, {userName}.
           {connected && schedule.length > 0 && (
-            <>
-              <br />
+            <span className="ld-brief__second">
               {schedule.length} {schedule.length === 1 ? 'block' : 'blocks'} today.
-            </>
+            </span>
           )}
         </h1>
         {lede && <p className="ld-brief__lede">{lede}</p>}
@@ -182,9 +178,11 @@ export default function TodayView({
           <Allocation allocation={allocation} />
 
           <div className="ld-timeline__head">
-            <h2 className="ld-section-title">HOUR BY HOUR</h2>
-            <div className="ld-section-meta ld-section-meta--faint">
-              {schedule.length} {schedule.length === 1 ? 'BLOCK' : 'BLOCKS'}
+            <div className="ld-section-head">
+              <h2 className="ld-section-title">HOUR BY HOUR</h2>
+              <div className="ld-section-meta">
+                {schedule.length} {schedule.length === 1 ? 'BLOCK' : 'BLOCKS'}
+              </div>
             </div>
           </div>
 
@@ -205,7 +203,7 @@ export default function TodayView({
         <footer className="ld-rebuild">
           <span className="ld-rebuild__at">SOURCES</span>
           <span className="ld-rebuild__text">
-            Calendar, tasks and mail, {freshness(fetchedAt)}. Refreshed every morning at{' '}
+            Calendar, tasks and markets, {freshness(fetchedAt)}. Refreshed every morning at{' '}
             {MORNING_HOUR}:{String(MORNING_MINUTE).padStart(2, '0')} and whenever you come back to
             it. A fortnight is kept on this device, so it opens without a network.{' '}
             <button type="button" className="ld-refresh" onClick={onRefresh} disabled={busy}>

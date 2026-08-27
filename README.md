@@ -1,8 +1,8 @@
 # Life Dashboard
 
 A single-screen morning brief: the day's lectures and blocks hour by hour,
-what's due, unread mail grouped by sender, and the course materials sitting on
-your Desktop.
+what's due, the course materials sitting on your Desktop, and where the North
+American markets stand.
 
 **Live:** https://alexbabcock212-ui.github.io/
 
@@ -15,14 +15,15 @@ design system, and installable to a phone home screen.
   iPhone (PWA, GitHub Pages)          Cloudflare Worker             Google
   ─────────────────────────           ─────────────────             ──────
   device key in localStorage  ──────▶ holds the refresh token ────▶ Calendar
-  fortnight of data cached            fetches all three feeds       Tasks
-  shapes it into the screens          returns one JSON payload      Gmail
-           ▲
-           │  baked in at deploy time
-     ~/Desktop/Courses  (npm run scan)
+  fortnight of data cached            fetches every feed            Tasks
+  shapes it into the screens          returns one JSON payload
+           ▲                                   │              public feeds
+           │  baked in at deploy time          │              ────────────
+     ~/Desktop/Courses  (npm run scan)         └────────────▶ quotes
+                                                              CNBC + CBC RSS
 ```
 
-Three things are worth understanding before changing any of it.
+Four things are worth understanding before changing any of it.
 
 **Why there is a back end at all.** Google's browser-only token flow issues *no
 refresh token* by design — access tokens last about an hour and renewing one
@@ -39,15 +40,24 @@ the Worker runs in a datacentre. So course materials are scanned on the Mac at
 deploy time and baked into the bundle — a snapshot, and the Courses screen says
 so and dates it.
 
+**Why the market feeds go through the Worker too.** They need no credential —
+they are public quote and RSS endpoints — but none of those hosts send CORS
+headers, so a browser cannot read them at all. They ride along in the same
+payload, behind the same two-minute cache, which also keeps the phone from
+parsing three RSS documents to show eight headlines.
+
 ## Setting it up
 
 Two things in the Google Console, then one command.
 
 ### 1. Google Cloud Console (project `360086150959`)
 
-1. **Enable APIs:** Calendar, Tasks, Gmail.
-2. **Add scopes** on the consent screen: `calendar.readonly`, `tasks.readonly`,
-   `gmail.readonly`.
+1. **Enable APIs:** Calendar and Tasks.
+2. **Add scopes** on the consent screen: `calendar.readonly` and
+   `tasks.readonly`. (`gmail.readonly` was needed by an earlier version and is
+   no longer requested — if a previous consent granted it, revoke it at
+   [myaccount.google.com/permissions](https://myaccount.google.com/permissions)
+   and re-run `npm run setup`.)
 3. **Publishing status → "In production."** In *Testing*, Google expires refresh
    tokens after **7 days**, which restores the weekly sign-in this whole design
    exists to remove. Unverified-in-production is correct here; it costs one
@@ -226,7 +236,8 @@ The Pages repo is public, and that shaped several decisions:
 | Thing | Where it lives | Public? |
 | --- | --- | --- |
 | Google refresh token, client secret | Worker secrets | no |
-| Calendar, task and mail content | fetched per request, cached on device | no |
+| Calendar and task content | fetched per request, cached on device | no |
+| Quotes and headlines | fetched per request, cached on device | they were public to begin with |
 | Device key | your phone's `localStorage` | no |
 | Worker URL (`VITE_API_BASE`) | the bundle | yes — an address, not a credential |
 | **Course filenames and lecture topics** | the bundle, via `courses.generated.json` | **yes** |
@@ -258,8 +269,9 @@ npm run deploy   # scan, build, publish to the gh-pages branch
 `npm run check` is the only automated verification there is — there is no
 browser in this environment. It covers course-code parsing, the timeline and
 hour allocation, folder-to-calendar matching, section ordering, due-date
-handling (including the timezone trap below), mail clustering, and the 6:45
-boundaries; then it renders all four tabs and the setup sheet to a string.
+handling (including the timezone trap below), the market board's formatting and
+derived brief, and the 6:45 boundaries; then it renders all four tabs and the
+setup sheet to a string.
 
 ## Deploying
 
@@ -284,8 +296,8 @@ repo's token doesn't carry. To switch to push-to-deploy, run
 ```
 src/
   App.tsx                 tab + completion state, the device frame, the setup sheet
-  components/             StatusBar, TabBar, KeyGate, Corners, EmptyState
-  views/                  one file per tab: Today, Courses, Due, Mail
+  components/             StatusBar, TabBar, KeyGate, EmptyState, Spark
+  views/                  one file per tab: Today, Courses, Due, Markets
   data/
     types.ts              the shapes every view reads
     payload.ts            the wire format between Worker and app
@@ -297,19 +309,22 @@ src/
     courses.ts            the baked Desktop scan
     courses.generated.json    written by `npm run scan` — do not edit
     completion.ts         ticked-off deadlines, persisted per day
-    sources/              raw Google shapes → the views' shapes
+    sources/              raw upstream shapes → the views' shapes
       calendar.ts           course identity, timeline, hour allocation
       tasks.ts              tasks + all-day events → deadlines
-      mail.ts               unread mail → sender clusters
+      markets.ts            the board's layout, rounding and derived brief
       courses.ts            calendar × Desktop folders → the course list
       term.ts               which week of term it is
   styles/
     industry.css          the design system, near-verbatim from the Design project
+    theme.css             the palette and scale — the only file naming a colour
     fonts.css             self-hosted Barlow (see below)
-    app.css               screen styles, built only from Industry's tokens
+    app.css               screen styles, built only from theme.css's roles
 worker/
   src/index.ts            two routes: /api/dashboard and /health. Nothing else.
-  src/google.ts           token refresh and the three feeds
+  src/feed.ts             the per-source `{ ok, items, error }` contract
+  src/google.ts           token refresh and the two Google feeds
+  src/markets.ts          the quote board and the newsroom RSS
   wrangler.toml           name and allowed origins; everything else is a secret
 scripts/
   setup.mjs               the whole credential flow, verified at every step
@@ -331,10 +346,17 @@ deviation**, marked in the file: its `@import` of Google Fonts is removed,
 because a CDN font request means the app loses its entire typography the moment
 the phone is offline. The same families are self-hosted in `fonts.css` instead.
 
-Everything in `app.css` refers to Industry's tokens (`--color-accent-900`,
-`--space-8`, `--shadow-lg`, …) rather than to literal colours. The only literal
-hexes in the project are `theme_color` and `background_color` in the manifest,
-which cannot read CSS custom properties.
+Industry is a light, hairline, blueprint system built for documents.
+`src/styles/theme.css` is that system tuned for the one thing it is actually
+used for — a dark phone screen, read at 6:45 and again after the close. It
+defines role tokens (`--bg`, `--bg-raised`, `--line`, `--fg-2`, `--accent`,
+`--up`, `--down`, `--r-card`, …) and it is the **only file in `src/` that names
+a colour**; `app.css` composes those roles and nothing else. Retuning the app
+means retuning `theme.css`.
+
+The remaining literal hexes in the project are `theme_color` and
+`background_color` in the manifest and the two icon sources, none of which can
+read a CSS custom property. All four are `--bg`.
 
 ### Installing it on a phone
 
@@ -359,9 +381,10 @@ desktop:
 
 ### Icons
 
-`icons/icon.svg` is the full mark; `icons/icon-maskable.svg` drops the corner
-registration marks because Android's circular mask and iOS's squircle would clip
-them. The PNGs in `public/` are generated and committed — `sharp` is not a
+`icons/icon.svg` is the full mark on a rounded ground;
+`icons/icon-maskable.svg` is the same mark pulled well inside the safe zone,
+because Android's circular mask and iOS's squircle clip roughly a fifth off
+each edge. The PNGs in `public/` are generated and committed — `sharp` is not a
 dependency, since icons change roughly never. To regenerate:
 
 ```bash
@@ -381,11 +404,34 @@ npm i -D sharp && node scripts/make-icons.mjs && npm un sharp
   and a block running past midnight is credited only the part inside. Counting
   whole durations against a 16-hour window let the segments and the "unclaimed"
   remainder describe different days.
-- **Mail is not judged.** The design has a notion of a thread that "wants a
-  reply", and no amount of Gmail *metadata* can tell you that; reading bodies to
-  guess would be both a larger permission and a worse answer. So the screen
-  emphasises what is checkable — mail that arrived today — and tags a cluster
-  with a course code when the subject line supplies one.
+- **The market brief states, it does not advise.** Every figure on that screen
+  is arithmetic on a last price and a previous close, and the sentence at the
+  top is assembled from those same rows — a count of how many North American
+  indexes rose, then three levels quoted back. There is no adjective the
+  arithmetic does not license and no causal claim anywhere: the screen can see
+  that the Nasdaq rose, never why. It is a board, in the sense a departures
+  board is a board.
+- **A yield moves in basis points.** Every other row shows a percent change;
+  the 10-year shows `+0.8 bp`, because "the 10-year rose 0.17%" is a percent of
+  a percent and means nothing to anyone.
+- **The last good board outlives a rate limit.** The quote host throttles
+  shared datacentre addresses, so the Worker keeps the last board that actually
+  worked for half an hour and serves it when a fresh read fails. That is honest
+  here in a way it would not be for a calendar: every row carries the timestamp
+  of its own last print and the screen shows it, so a stale board says on its
+  face that it is stale. Headlines are never rolled back — only the quotes fall
+  back.
+- **The `User-Agent` is load-bearing, and was found the hard way.** The quote
+  host answers **429** both to a full Chrome string and to a bare `curl/8.x`: a
+  client claiming to be a browser is expected to use the website rather than the
+  JSON API, and an anonymous one is assumed to be a scraper. The newsroom edge
+  wants the opposite and drops anything it cannot recognise as a client at all.
+  `Mozilla/5.0 (compatible; life-dashboard/1.0)` satisfies both and is the only
+  version of it that is true. Do not "modernise" it into a real browser's UA.
+- **Headlines are capped per newsroom, not just merged.** CBC files business
+  copy several times an hour and CNBC does not, so sorting a straight merge by
+  timestamp produced six CBC headlines and two of everything else. Each feed is
+  capped at three first, and the survivors are then sorted.
 - **All-day calendar entries are deadlines, not blocks.** They have no place on
   an hour-by-hour timeline and no duration to count toward the day, but they are
   how most due dates actually arrive, so they are folded into the DUE screen
@@ -396,10 +442,17 @@ npm i -D sharp && node scripts/make-icons.mjs && npm un sharp
   uses the local constructor. There is a check pinning this.
 - **One source failing does not blank the board.** The Worker returns each feed
   with its own `ok`, and the app shows a note beside the footer rather than an
-  error screen when, say, Gmail is down but the timetable is not.
+  error screen when, say, the quote feed is down but the timetable is not.
 - **The cache is the opening screen.** The app renders the last payload
   immediately and corrects it over the network, rather than showing a spinner.
 - Ticked-off deadlines persist across launches, scoped to the day.
 - Tab switches reset the scroll position; each tab is its own screen.
 - The money screen was removed: no brokerage exposes an API a browser can call,
   so it could only ever have been hand-entered, which is a worse spreadsheet.
+  The MARKETS screen is not that screen — it holds no positions and knows
+  nothing about you, which is exactly why it can be live.
+- **The mail screen was removed, and the Gmail scope with it.** Grouping unread
+  senders was the least-read screen in the app and the largest permission it
+  asked for. Deleting the screen but keeping the scope would have meant reading
+  a mailbox every two minutes to display nothing, so `fetchMail`, the
+  `gmail.readonly` scope and the setup probe all went at the same time.

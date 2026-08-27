@@ -1,0 +1,81 @@
+/* Life Dashboard — the palette and the scale.
+   ────────────────────────────────────────────────────────────────────────────
+   The Industry design system (industry.css) is a light, hairline, blueprint
+   look built for documents. This is the same system tuned for the one thing it
+   is actually used for: a phone screen read at 6:45 in the morning and again
+   after the market closes. It stays dark, drops the registration marks, and
+   trades hard 1px boxes for material — a raised surface, a hairline, and space.
+
+   This is the only file in src/ that names a colour. Everything else composes
+   the roles below, so retuning the app means retuning this file.               */
+
+:root {
+  /* Tell form controls, scrollbars and the like which way round we are. */
+  color-scheme: dark;
+
+  /* ── ground ───────────────────────────────────────────────────────────
+     Four steps, not five: the desk the phone sits on, the screen, a card
+     raised off it, and the chrome sunk behind it. */
+  --void: #06070a;
+  --bg: #0d0f13;
+  --bg-raised: #14171d;
+  --bg-sunken: #090b0e;
+  --bg-press: #1b1f27;
+
+  /* ── hairlines ────────────────────────────────────────────────────────
+     A border on a dark ground reads twice as loud as the same border on a
+     light one, so these sit far closer to the background than they look. */
+  --line: #1e222a;
+  --line-soft: #171a1f;
+  --line-lit: #2c323d;
+
+  /* ── ink ──────────────────────────────────────────────────────────────
+     Three weights of text and no more. Anything that wants a fourth is
+     usually asking for space instead. */
+  --fg: #eef0f4;
+  --fg-2: #a3aab6;
+  --fg-3: #6c7380;
+
+  /* ── accent ───────────────────────────────────────────────────────────
+     The steel blue the app has always used, lifted to carry on a dark
+     ground. `wash` is what a tinted panel is made of; `deep` and `mid` are
+     for filled bars, where the colour is the content. */
+  --accent: #8fb0dd;
+  --accent-lit: #bcd2ec;
+  --accent-mid: #55719c;
+  --accent-deep: #2b3b52;
+  --accent-wash: #141b26;
+
+  /* ── direction ────────────────────────────────────────────────────────
+     Desaturated on purpose. A board of fourteen rows in full-strength red
+     and green is a slot machine; these read at a glance and stop shouting
+     once you have taken them in. */
+  --up: #56c08c;
+  --up-wash: #101e18;
+  --down: #e8796a;
+  --down-wash: #201310;
+
+  /* ── shape ────────────────────────────────────────────────────────────
+     One card radius, one pill, one tight radius for the small stuff. */
+  --r-card: 14px;
+  --r-tight: 8px;
+  --r-pill: 999px;
+
+  /* ── depth ────────────────────────────────────────────────────────────
+     Dark interfaces get depth from a lit top edge, not from a drop shadow;
+     the only real shadow here is the one under the handset. */
+  --edge: inset 0 1px 0 rgb(255 255 255 / 4%);
+  --lift: 0 40px 80px -32px rgb(0 0 0 / 85%), 0 8px 24px -12px rgb(0 0 0 / 60%);
+
+  /* ── type ─────────────────────────────────────────────────────────────
+     Barlow sets everything that is read as language; Barlow Condensed sets
+     everything that is read as a label — eyebrows, section rules, the tab
+     bar, the time gutter. The old design ran headlines in Condensed 700 at
+     38px, which is where most of the chunkiness came from. */
+  --font-display: 'Barlow', system-ui, sans-serif;
+  --font-body: 'Barlow', system-ui, sans-serif;
+  --font-label: 'Barlow Condensed', system-ui, sans-serif;
+
+  /* Levels, changes and times all sit in columns; they have to line up. */
+  --numeric: tabular-nums;
+}

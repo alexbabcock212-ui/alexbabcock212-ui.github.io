@@ -16,7 +16,7 @@ import {
 import type { CalendarEvent } from '../src/data/sources/calendar'
 import { sortSections, toCourses } from '../src/data/sources/courses'
 import { daysUntil, localDate, toDeadlines, whenLabel } from '../src/data/sources/tasks'
-import { toClusters } from '../src/data/sources/mail'
+import { agoLabel, normalise, toBrief, toGroups } from '../src/data/sources/markets'
 import { isStale, lastMorning, nextMorning } from '../src/data/morning'
 import { currentWeek, topicForWeek } from '../src/data/sources/term'
 import { freshness } from '../src/data/dashboard'
@@ -195,29 +195,58 @@ eq('near ones are urgent', [deadlines[0].urgent, deadlines[1].urgent], [true, tr
 eq('undated ones are not', deadlines[3].urgent, false)
 eq('all-day events are folded in', deadlines[0].id.startsWith('allday:'), true)
 
-console.log('— mail —')
-const msg = (id: string, from: string, address: string, subject: string, dayOffset: number) => ({
-  id,
-  threadId: `t${id}`,
-  from,
-  address,
-  subject,
-  date: new Date(2026, 7, 24 + dayOffset, 9).getTime(),
+console.log('— markets —')
+const quote = (symbol: string, price: number, previousClose: number, spark: number[] = []) => ({
+  symbol,
+  price,
+  previousClose,
+  spark,
+  at: new Date(2026, 7, 27, 16, 0).getTime(),
 })
-const clusters = toClusters(
-  [
-    msg('1', 'Registrar', 'reg@uwo.ca', 'Fees due', 0),
-    msg('2', 'Registrar', 'reg@uwo.ca', 'Enrolment opens', -1),
-    msg('3', 'Prof Lee', 'lee@uwo.ca', 'Econ 2122 readings', -3),
-  ],
-  NOW,
+
+const groups = toGroups([
+  quote('^GSPC', 7730.99, 7675.7, [1, 2, 3, 4, 5]),
+  quote('^IXIC', 26541.35, 26130.2),
+  quote('^DJI', 53569.44, 53463.88),
+  quote('^RUT', 3014.34, 3005.9),
+  quote('^GSPTSE', 36834.25, 36813.65),
+  quote('^TNX', 4.672, 4.664),
+  quote('CAD=X', 1.3852, 1.3872),
+  quote('CL=F', 83.63, 85.01),
+  quote('ZZZ', 1, 1),
+])
+eq('bands come out in board order', groups.map((g) => g.title), [
+  'NORTH AMERICA',
+  'RATES, RISK & THE DOLLAR',
+  'COMMODITIES & CRYPTO',
+])
+eq('a symbol the board does not know is dropped', groups.flatMap((g) => g.quotes).length, 8)
+eq('levels are grouped and rounded', groups[0].quotes[0].value, '7,730.99')
+eq('the move carries its sign', groups[0].quotes[0].change, '+55.29')
+eq('so does the percent', groups[0].quotes[0].percent, '+0.72%')
+eq('a fall reads as a fall', groups[2].quotes[0].direction, 'down')
+eq('and uses a real minus', groups[2].quotes[0].percent, '−1.62%')
+eq('breadth is counted, not asserted', groups[0].meta, '5 UP')
+eq('a yield moves in basis points', groups[1].quotes[0].change, '+0.8 bp')
+eq('and keeps its unit on the level', groups[1].quotes[0].value, '4.67%')
+eq('a percent of a percent is never shown', groups[1].quotes[0].percent, '')
+eq('four decimals for a currency pair', groups[1].quotes[1].value, '1.3852')
+eq('the last print is on the row', groups[0].quotes[0].time, '4:00 PM')
+
+eq('a sparkline needs a shape to draw', normalise([1, 2, 3]), [])
+eq('and is flattened onto 0-1', normalise([2, 4, 6, 8]), [0, 1 / 3, 2 / 3, 1])
+eq('a flat session runs down the middle', normalise([5, 5, 5, 5]), [0.5, 0.5, 0.5, 0.5])
+
+eq(
+  'the brief is assembled from the rows',
+  toBrief(groups),
+  'All five North American indexes higher — S&P 500 +0.72%, S&P/TSX +0.06%. ' +
+    'With the 10-year at 4.67%, the loonie at 1.3852 and crude at 83.63.',
 )
-eq('grouped by sender', clusters.map((c) => c.name), ['Registrar', 'Prof Lee'])
-eq('counted', clusters[0].count, '2 UNREAD')
-eq('newest subject leads', clusters[0].summary, 'Fees due · and 1 more')
-eq('age when nothing better', clusters[0].tag, 'TODAY')
-eq('a course in the subject wins the tag', clusters[1].tag, 'ECON 2122')
-eq("today's mail is emphasised", [clusters[0].live, clusters[1].live], [true, false])
+eq('and says nothing when there is nothing', toBrief([]), null)
+
+eq('headline ages read as labels', agoLabel(NOW.getTime() - 2 * 3_600_000, NOW), '2H AGO')
+eq('a day old is yesterday', agoLabel(NOW.getTime() - 26 * 3_600_000, NOW), 'YESTERDAY')
 
 console.log('— the 6:45 rule —')
 const morningOf = (d: number, h: number, m = 0) => new Date(2026, 7, d, h, m)

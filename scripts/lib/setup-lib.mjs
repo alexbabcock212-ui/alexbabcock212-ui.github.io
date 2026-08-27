@@ -153,7 +153,6 @@ export const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 export const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/tasks.readonly',
-  'https://www.googleapis.com/auth/gmail.readonly',
 ].join(' ')
 
 export const LOOPBACK_PORT = 8976
@@ -231,10 +230,6 @@ export async function checkScopes(accessToken) {
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=5&timeMin=${now}&singleEvents=true&orderBy=startTime`,
     ),
     call('tasks', 'https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=5'),
-    call(
-      'mail',
-      'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5&q=is%3Aunread+in%3Ainbox',
-    ),
   ])
 }
 

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import Corners from './Corners'
 import { API_BASE, isConfigured } from '../data/api'
 
 interface Props {
@@ -38,7 +37,6 @@ export default function KeyGate({ onInstall, onClose, rejected }: Props) {
   return (
     <div className="ld-sheet" role="dialog" aria-modal="true" aria-labelledby="ld-sheet-title">
       <div className="ld-sheet__panel">
-        <Corners variant="outset" />
         <div className="ld-sheet__kicker">DEVICE KEY</div>
         <h2 className="ld-sheet__title" id="ld-sheet-title">
           {rejected ? 'This key was refused' : 'Set up this device'}

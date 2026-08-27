@@ -45,7 +45,7 @@ function remedy(error = '') {
   if (e.includes('403') || e.includes('has not been used') || e.includes('disabled')) {
     return [
       'That Google API is not enabled on the project.',
-      'Enable Calendar, Tasks and Gmail in the API Library, then retry.',
+      'Enable Calendar and Tasks in the API Library, then retry.',
     ]
   }
   if (e.includes('insufficient') || e.includes('scope')) {
@@ -110,7 +110,7 @@ async function main() {
   }
 
   const failures = []
-  for (const feed of ['calendar', 'allDay', 'tasks', 'mail']) {
+  for (const feed of ['calendar', 'allDay', 'tasks', 'quotes', 'headlines']) {
     const f = payload[feed] ?? {}
     const n = (f.items ?? []).length
     if (f.ok) ok(feed, `${n} item${n === 1 ? '' : 's'}`)
