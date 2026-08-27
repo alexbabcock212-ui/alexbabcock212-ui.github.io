@@ -3,7 +3,7 @@ import EmptyState from '../components/EmptyState'
 import { shortDate } from '../data/dashboard'
 import { courseFolders, scanRedacted, scanRoot, scannedAt } from '../data/courses'
 import { groupMaterials } from '../data/sources/courses'
-import type { Course, Dashboard, MaterialKind } from '../data/types'
+import type { Course, Dashboard, Lecture, MaterialKind } from '../data/types'
 
 /** Two or three letters is all the room there is beside a filename. */
 const KIND_LABEL: Record<MaterialKind, string> = {
@@ -21,10 +21,6 @@ const stem = (name: string) => name.replace(/\.[^.]+$/, '')
 /** What this course is covering right now, or null outside the term. */
 const thisWeek = (c: Course) => c.lectures.find((l) => l.week === c.currentWeek) ?? null
 
-/** `Sep 17 and 19 · Ch 3` — whichever of the two the syllabus gave. */
-const lectureMeta = (dates: string, readings: string) =>
-  [dates, readings && `Ch ${readings}`].filter(Boolean).join(' · ')
-
 /**
  * Every week of the term, one tappable row each.
  *
@@ -38,54 +34,107 @@ function Lectures({ course }: { course: Course }) {
 
   return (
     <section className="ld-lectures">
-      <h3 className="ld-matgroup__name">Lectures</h3>
+      <div className="ld-section-head ld-section-head--sub">
+        <h3 className="ld-section-title">WEEK BY WEEK</h3>
+        <div className="ld-section-meta">
+          {course.lectures.length} {course.lectures.length === 1 ? 'WEEK' : 'WEEKS'}
+        </div>
+      </div>
       <ol className="ld-lecturelist">
         {course.lectures.map((l) => {
           const now = l.week === course.currentWeek
-          const meta = lectureMeta(l.dates, l.readings)
-          const expandable = Boolean(l.detail || meta)
-          const shown = expandable && open === l.week
+          const shown = open === l.week
 
           return (
-            <li className={`ld-lec${now ? ' ld-lec--now' : ''}`} key={l.week}>
+            <li className={`ld-lec${now ? ' ld-lec--now' : ''}${shown ? ' ld-lec--open' : ''}`} key={l.week}>
+              {/* Every week opens, including the ones with nothing to show.
+                  A row that silently ignores a tap reads as broken, and "there
+                  is no summary for this week" is itself worth being told. */}
               <button
                 type="button"
                 className="ld-lec__row"
-                aria-expanded={expandable ? shown : undefined}
-                disabled={!expandable}
+                aria-expanded={shown}
                 onClick={() => setOpen(shown ? null : l.week)}
               >
                 <span className="ld-lec__week">{l.week}</span>
-                <span className="ld-lec__topic">{l.topic || meta || 'No topic recorded'}</span>
-                {expandable && (
-                  <span className="ld-lec__chevron" aria-hidden="true">
-                    {shown ? '–' : '+'}
-                  </span>
-                )}
+                <span className="ld-lec__topic">{l.topic || 'No topic recorded'}</span>
+                <span className="ld-lec__chevron" aria-hidden="true">
+                  <svg viewBox="0 0 12 12" width="12" height="12">
+                    <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
               </button>
 
-              {shown && (
-                <div className="ld-lec__body">
-                  {meta && <div className="ld-lec__meta">{meta}</div>}
-                  {l.detail && (
-                    <ul className="ld-lec__points">
-                      {l.detail.split(' · ').map((point) => (
-                        <li key={point}>{point}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {/* A parsed bullet and a hand-written note should not read
-                      as the same kind of statement. */}
-                  {l.detailSource === 'slides' && (
-                    <div className="ld-lec__source">from this week&rsquo;s slides</div>
-                  )}
-                </div>
-              )}
+              {shown && <LectureBody course={course} lecture={l} />}
             </li>
           )
         })}
       </ol>
     </section>
+  )
+}
+
+/**
+ * What one week holds, once it is opened.
+ *
+ * The summary is the point of this panel and it is the one part that cannot be
+ * manufactured: every word of it comes from the user's own files. Where there
+ * is none, the panel says so and says where one would come from, rather than
+ * opening onto a dates line and letting the silence imply the lecture has no
+ * content.
+ */
+function LectureBody({ course, lecture }: { course: Course; lecture: Lecture }) {
+  const facts = [
+    lecture.dates && { label: 'DATES', text: lecture.dates },
+    lecture.readings && { label: 'READING', text: `Chapter ${lecture.readings}` },
+  ].filter((f): f is { label: string; text: string } => Boolean(f))
+
+  const folder = course.folder
+
+  return (
+    <div className="ld-lec__body">
+      {facts.length > 0 && (
+        <dl className="ld-lec__facts">
+          {facts.map((f) => (
+            <div className="ld-lec__fact" key={f.label}>
+              <dt>{f.label}</dt>
+              <dd>{f.text}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {lecture.detail ? (
+        <>
+          <ul className="ld-lec__points">
+            {lecture.detail.split(' · ').map((point) => (
+              <li key={point}>{point}</li>
+            ))}
+          </ul>
+          {/* A parsed bullet and a hand-written note should not read as the
+              same kind of statement. */}
+          {lecture.detailSource === 'slides' && (
+            <div className="ld-lec__source">Read off this week&rsquo;s slides</div>
+          )}
+        </>
+      ) : (
+        <p className="ld-lec__none">
+          No summary for this week — nothing on this Mac says what it covers yet.
+          One is read automatically from a lecture deck dropped into{' '}
+          {folder ? (
+            <code>
+              {scanRoot}/{folder.folder}
+            </code>
+          ) : (
+            <>
+              a <code>{course.code}</code> folder in <code>{scanRoot}</code>
+            </>
+          )}
+          , or you can write one into <code>lectures.tsv</code>. Either way it
+          appears here after the next <code>npm run scan</code>.
+        </p>
+      )}
+    </div>
   )
 }
 

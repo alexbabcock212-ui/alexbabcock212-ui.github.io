@@ -870,66 +870,86 @@ a { color: var(--accent); text-decoration: none; }
   color: var(--accent);
 }
 
-.ld-lectures { margin-top: 14px; }
-.ld-lecturelist { margin-top: 6px; }
+.ld-lectures { margin-top: 16px; }
+/* A rule inside a card is quieter than one that divides the screen. */
+.ld-section-head--sub { padding-bottom: 8px; margin-bottom: 4px; }
+.ld-section-head--sub .ld-section-title { font-size: 10.5px; color: var(--fg-3); }
+.ld-section-head--sub .ld-section-meta { font-size: 10.5px; }
+
 .ld-lec + .ld-lec { border-top: 1px solid var(--line-soft); }
+.ld-lec--open { border-top-color: transparent; }
+.ld-lec--open + .ld-lec { border-top-color: transparent; }
 
 .ld-lec__row {
   display: grid;
   grid-template-columns: 24px 1fr auto;
-  gap: 10px;
-  align-items: baseline;
+  gap: 12px;
+  align-items: center;
   width: 100%;
-  padding: 8px 0;
+  padding: 11px 0;
   background: none;
   border: 0;
   text-align: left;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--fg-2);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.ld-lec__row:disabled { cursor: default; }
 .ld-lec__week {
   font-family: var(--font-label);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 11px;
   font-variant-numeric: var(--numeric);
+  line-height: 20px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  background: var(--bg-press);
   color: var(--fg-3);
   text-align: center;
 }
 /* The current week is the only row that needs finding in a list of thirteen. */
-.ld-lec--now .ld-lec__week {
-  color: var(--bg);
-  background: var(--accent);
-  border-radius: var(--r-pill);
-}
+.ld-lec--now .ld-lec__week { color: var(--bg); background: var(--accent); }
 .ld-lec--now .ld-lec__topic { font-weight: 600; color: var(--fg); }
+.ld-lec--open .ld-lec__topic { color: var(--fg); }
 .ld-lec__chevron {
-  font-family: var(--font-label);
-  font-size: 15px;
-  line-height: 1;
+  display: flex;
   color: var(--fg-3);
+  transition: transform 160ms ease, color 160ms ease;
 }
+.ld-lec--open .ld-lec__chevron { transform: rotate(180deg); color: var(--accent); }
 
-.ld-lec__body { padding: 0 0 12px 34px; }
-.ld-lec__meta {
-  font-family: var(--font-label);
-  font-weight: 500;
-  font-size: 10.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  margin-bottom: 7px;
+/* The opened week. A panel, so it reads as the row's contents rather than as
+   the next three rows. */
+.ld-lec__body {
+  margin: 0 0 12px 36px;
+  padding: 13px 14px;
+  border-radius: var(--r-tight);
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
 }
-.ld-lec__points { display: flex; flex-direction: column; gap: 6px; }
+.ld-lec__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin-bottom: 11px;
+}
+.ld-lec__fact { display: flex; gap: 8px; align-items: baseline; }
+.ld-lec__fact dt {
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  color: var(--fg-3);
+}
+.ld-lec__fact dd { font-size: 12px; color: var(--fg-2); }
+.ld-lec__points { display: flex; flex-direction: column; gap: 7px; }
 .ld-lec__points li {
   position: relative;
-  padding-left: 14px;
+  padding-left: 15px;
   font-size: 12.5px;
   line-height: 1.5;
-  color: var(--fg-2);
+  color: var(--fg);
   text-wrap: pretty;
 }
 .ld-lec__points li::before {
@@ -940,10 +960,35 @@ a { color: var(--accent); text-decoration: none; }
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--accent-mid);
+  background: var(--accent);
 }
+/* Said plainly, because a missing summary is a fact about this Mac and not an
+   error — and because the fix for it is two sentences long. */
+.ld-lec__none {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--fg-3);
+  text-wrap: pretty;
+}
+.ld-lec__none code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  color: var(--accent);
+  word-break: break-word;
+}
+
 /* Quiet, because it qualifies the text above rather than adding to it. */
-.ld-lec__source { margin-top: 8px; font-size: 11px; font-style: italic; color: var(--fg-3); }
+.ld-lec__source {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--font-label);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
 
 .ld-course__materials { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
 .ld-course__sections { display: flex; flex-wrap: wrap; gap: 6px; }
