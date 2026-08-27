@@ -1,5 +1,5 @@
 {
-  "scannedAt": 1787871761811,
+  "scannedAt": 1787874841509,
   "root": "~/Desktop/Courses",
   "redacted": false,
   "term": {
@@ -51,22 +51,90 @@
       "lectures": [
         {
           "week": 1,
-          "topic": "CS 2440A/B Alexander the Great",
-          "dates": "",
+          "topic": "Introduction: Alexander the Great",
           "readings": "",
-          "detail": "Learning about one of the most famous people in all of recorded history · Learning about the history and culture of Ancient Greece, Macedonia, and the Ancient Near East · Learning how to do ancient history · Developing and answering historical questions",
-          "detailSource": "slides"
+          "detail": "",
+          "dates": "",
+          "decks": [
+            {
+              "number": 1,
+              "title": "Introduction: Alexander the Great",
+              "slides": 8,
+              "topics": [
+                "Learning about one of the most famous people in all of recorded history",
+                "Learning about the history and culture of Ancient Greece, Macedonia, and the Ancient Near East",
+                "Learning how to do ancient history",
+                "Developing and answering historical questions",
+                "Learning about the impact of individuals on the course of history",
+                "Learning about leadership",
+                "Learning how to evaluate historical figures"
+              ],
+              "source": "summary",
+              "file": "2440 Lecture 1.pdf"
+            },
+            {
+              "number": 2,
+              "title": "Historical Background I: Greece 480-404 BC",
+              "slides": 27,
+              "topics": [
+                "Periodization of Greek History",
+                "Sociopolitical Evolution Theory",
+                "Greece: From the Stone Age to 480 BC",
+                "The Rise of the Persian Empire",
+                "The Persian Wars (490; 480-479 BC)",
+                "From the Delian League to the Athenian Empire",
+                "The Peloponnesian War (431-404 BC)"
+              ],
+              "source": "summary",
+              "file": "2440 Lecture 2.pdf"
+            }
+          ],
+          "detailSource": "none"
         },
         {
           "week": 2,
-          "topic": "CS 2440A/B Alexander the Great",
-          "dates": "",
+          "topic": "Historical Background II: Greece 404-359 BC & Ancient Macedonia",
           "readings": "",
           "detail": "",
+          "dates": "",
+          "decks": [
+            {
+              "number": 3,
+              "title": "Historical Background II: Greece 404-359 BC & Ancient Macedonia",
+              "slides": 31,
+              "topics": [
+                "Models for achieving peace and stability among the Greek poleis",
+                "Struggle for hegemony in 4th-century Greece",
+                "Spartan supremacy (404-371 BC)",
+                "Theban hegemony (371-362 BC)",
+                "Second Athenian League (377-355 BC)",
+                "Location of Macedonia",
+                "Two Macedonias today",
+                "Ancient Macedonia",
+                "Geography, economy, socio-political institutions, culture",
+                "Macedonian history from 514 to 359 BC"
+              ],
+              "source": "summary",
+              "file": "2440 Lecture 3.pdf"
+            },
+            {
+              "number": 4,
+              "title": "Philip II of Macedon: Internal Consolidation and Military Reforms",
+              "slides": 40,
+              "topics": [
+                "Macedonia in 359 BC",
+                "Excursus: Greek Warfare",
+                "Philip’s internal consolidation and military reforms",
+                "Philip’s expansionism"
+              ],
+              "source": "summary",
+              "file": "2440 Lecture 4.pdf"
+            }
+          ],
           "detailSource": "none"
         }
       ],
-      "lecturesSource": "pdf",
+      "lecturesSource": "file",
       "assessments": []
     },
     {
@@ -90,6 +158,7 @@
           "readings": "1",
           "detail": "",
           "dates": "Sep 05",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -98,6 +167,7 @@
           "readings": "2",
           "detail": "",
           "dates": "Sep 10 and 12",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -106,6 +176,7 @@
           "readings": "3",
           "detail": "",
           "dates": "Sep 17 and 19",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -114,6 +185,7 @@
           "readings": "4",
           "detail": "",
           "dates": "Sep 24 and 26",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -122,6 +194,7 @@
           "readings": "9",
           "detail": "",
           "dates": "Oct 01 and 03",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -130,6 +203,7 @@
           "readings": "10",
           "detail": "",
           "dates": "Oct 08 and 10",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -138,6 +212,7 @@
           "readings": "12",
           "detail": "",
           "dates": "Oct 22 and 24",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -146,6 +221,7 @@
           "readings": "11",
           "detail": "",
           "dates": "Oct 29 and 31",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -154,6 +230,7 @@
           "readings": "5",
           "detail": "",
           "dates": "Nov 05 and 07",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -162,6 +239,7 @@
           "readings": "6",
           "detail": "",
           "dates": "Nov 12 and 14",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -170,6 +248,7 @@
           "readings": "15",
           "detail": "",
           "dates": "Nov 19 and 21",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -178,6 +257,7 @@
           "readings": "16",
           "detail": "",
           "dates": "Nov 26 and 28",
+          "decks": [],
           "detailSource": "none"
         },
         {
@@ -186,6 +266,7 @@
           "readings": "17",
           "detail": "",
           "dates": "Dec 03 and 05",
+          "decks": [],
           "detailSource": "none"
         }
       ],

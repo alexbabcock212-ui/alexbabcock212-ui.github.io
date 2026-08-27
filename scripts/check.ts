@@ -24,7 +24,7 @@ import { freshness } from '../src/data/dashboard'
 // @ts-expect-error - plain JS helper, deliberately untyped
 import {
   deckScore,
-  extractObjectives,
+  outlineDeck,
   findAssessments,
   findSchedule,
   mergeLectures,
@@ -389,24 +389,45 @@ eq('with their dates', dated[0].dates, 'Oct 06')
 eq('and the chapter column stripped', dated[0].label, 'Midterm 1')
 
 console.log('— reading a lecture deck —')
-const DECK = [
-  '6 ECONOMIC GROWTH',
-  'After studying this chapter, you will be able to:',
-  '◆ Define and calculate the economic growth rate',
-  '◆ Describe the economic growth trends in Canada',
-  '© 2025 Pearson Canada',
-].join('\n')
-const parsedDeck = extractObjectives(DECK)
-eq('the heading, without its chapter number', parsedDeck.title, 'ECONOMIC GROWTH')
-eq(
-  'the objectives, joined',
-  parsedDeck.objectives,
-  'Define and calculate the economic growth rate · Describe the economic growth trends in Canada',
-)
+// One page per slide, which is the whole point: in a deck the page is the
+// unit of meaning, and merging the pages destroys the only structure it has.
+const SUMMARY_DECK = [
+  ['CS 2440A/B Alexander the Great', '(Dr. Bernd Steinbock)', 'Lecture 3: Historical Background II:', 'Greece 404-359 BC'].join('\n'),
+  ['Main Questions', '• Was there ever peace between the poleis?'].join('\n'),
+  ['Main Points', '• Models for achieving peace among the Greek poleis', '• Spartan supremacy (404-371 BC)', '• Theban hegemony (371-362 BC)'].join('\n'),
+  ['Sparta’s Victory', '• body text'].join('\n'),
+]
+const summary = outlineDeck(SUMMARY_DECK)
+eq('the lecture number off the title slide', summary.number, 3)
+eq('and its real heading, wrap included', summary.title, 'Historical Background II: Greece 404-359 BC')
+eq('the slide count', summary.slides, 4)
+eq('the deck’s own summary wins', summary.source, 'summary')
+eq('points, not questions, when it has both', summary.topics, [
+  'Models for achieving peace among the Greek poleis',
+  'Spartan supremacy (404-371 BC)',
+  'Theban hegemony (371-362 BC)',
+])
 
-const NO_CUE = ['WEEK 1 – The Enlightenment', 'Some body text that follows on.'].join('\n')
-eq('a deck without objectives still gives its title', extractObjectives(NO_CUE).title, 'WEEK 1 – The Enlightenment')
-eq('and invents nothing', extractObjectives(NO_CUE).objectives, '')
+const SECTION_DECK = [
+  'WEEK 1 – The Enlightenment',
+  ['Periodization of Greek History', '• body'].join('\n'),
+  ['Periodization of Greek History', '• more body'].join('\n'),
+  ['The Rise of the Persian Empire', '• body'].join('\n'),
+  '',
+  ['• ➔ a stray bullet that is not a heading'].join('\n'),
+  ['Questions?'].join('\n'),
+  ['© 2025 Pearson Canada'].join('\n'),
+]
+const sections = outlineDeck(SECTION_DECK)
+eq('with no summary slide, the headings are the outline', sections.source, 'sections')
+eq('a section spanning slides is one topic', sections.topics, [
+  'Periodization of Greek History',
+  'The Rise of the Persian Empire',
+])
+eq('the title slide is the name, not a topic', sections.title, 'WEEK 1 – The Enlightenment')
+eq('a deck that numbers nothing says so', sections.number, null)
+
+eq('and it invents nothing', outlineDeck(['Just a title slide']).topics, [])
 
 console.log('— picking the right file in a week folder —')
 eq('a lecture beats an example set', deckScore('Chapter 6 Lecture.pdf') > deckScore('Chapter 05 examples.pdf'), true)

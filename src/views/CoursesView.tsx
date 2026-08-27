@@ -3,7 +3,7 @@ import EmptyState from '../components/EmptyState'
 import { shortDate } from '../data/dashboard'
 import { courseFolders, scanRedacted, scanRoot, scannedAt } from '../data/courses'
 import { groupMaterials } from '../data/sources/courses'
-import type { Course, Dashboard, Lecture, MaterialKind } from '../data/types'
+import type { Course, Dashboard, DeckOutline, Lecture, MaterialKind } from '../data/types'
 
 /** Two or three letters is all the room there is beside a filename. */
 const KIND_LABEL: Record<MaterialKind, string> = {
@@ -58,6 +58,11 @@ function Lectures({ course }: { course: Course }) {
               >
                 <span className="ld-lec__week">{l.week}</span>
                 <span className="ld-lec__topic">{l.topic || 'No topic recorded'}</span>
+                {l.decks.length > 0 && (
+                  <span className="ld-lec__count">
+                    {l.decks.length} {l.decks.length === 1 ? 'LEC' : 'LECS'}
+                  </span>
+                )}
                 <span className="ld-lec__chevron" aria-hidden="true">
                   <svg viewBox="0 0 12 12" width="12" height="12">
                     <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -104,37 +109,77 @@ function LectureBody({ course, lecture }: { course: Course; lecture: Lecture }) 
         </dl>
       )}
 
-      {lecture.detail ? (
-        <>
+      {/* A note someone wrote by hand outranks anything parsed, and is
+          labelled so the two never read as the same kind of statement. */}
+      {lecture.detail && (
+        <div className="ld-lec__note">
           <ul className="ld-lec__points">
             {lecture.detail.split(' · ').map((point) => (
               <li key={point}>{point}</li>
             ))}
           </ul>
-          {/* A parsed bullet and a hand-written note should not read as the
-              same kind of statement. */}
-          {lecture.detailSource === 'slides' && (
-            <div className="ld-lec__source">Read off this week&rsquo;s slides</div>
-          )}
-        </>
-      ) : (
+          <div className="ld-lec__source">Your note</div>
+        </div>
+      )}
+
+      {lecture.decks.map((deck) => (
+        <Deck deck={deck} key={deck.file} />
+      ))}
+
+      {lecture.decks.length === 0 && !lecture.detail && (
         <p className="ld-lec__none">
-          No summary for this week — nothing on this Mac says what it covers yet.
-          One is read automatically from a lecture deck dropped into{' '}
+          No lecture deck for this week on this Mac, so nothing here can say what
+          it covers. Drop the slides into{' '}
           {folder ? (
             <code>
-              {scanRoot}/{folder.folder}
+              {scanRoot}/{folder.folder}/Week {lecture.week}
             </code>
           ) : (
             <>
               a <code>{course.code}</code> folder in <code>{scanRoot}</code>
             </>
           )}
-          , or you can write one into <code>lectures.tsv</code>. Either way it
-          appears here after the next <code>npm run scan</code>.
+          , or write the week up yourself in <code>lectures.tsv</code>. Either
+          way it appears here after the next <code>npm run scan</code>.
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * One lecture, as its own slides describe it.
+ *
+ * The footnote is not decoration. A list lifted from the lecturer's own
+ * "Main Points" slide and a list built from slide headings are different
+ * claims about how well the summary matches the lecture, and the screen should
+ * not present them as the same thing.
+ */
+function Deck({ deck }: { deck: DeckOutline }) {
+  return (
+    <section className="ld-deck">
+      <div className="ld-deck__head">
+        <span className="ld-deck__no">
+          {deck.number === null ? 'LECTURE' : `LECTURE ${deck.number}`}
+        </span>
+        <span className="ld-deck__slides">
+          {deck.slides} {deck.slides === 1 ? 'SLIDE' : 'SLIDES'}
+        </span>
+      </div>
+      {deck.title && <h4 className="ld-deck__title">{deck.title}</h4>}
+      {deck.topics.length > 0 && (
+        <ul className="ld-lec__points">
+          {deck.topics.map((topic) => (
+            <li key={topic}>{topic}</li>
+          ))}
+        </ul>
+      )}
+      <div className="ld-lec__source">
+        {deck.source === 'summary'
+          ? 'From this deck’s own summary slide'
+          : 'From its slide headings'}
+      </div>
+    </section>
   )
 }
 

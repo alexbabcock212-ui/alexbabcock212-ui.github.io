@@ -23,6 +23,7 @@ import { parseCourse } from '../src/data/sources/calendar'
 import type {
   Assessment,
   CourseFolder,
+  DeckOutline,
   Lecture,
   LecturesSource,
   Material,
@@ -31,10 +32,11 @@ import type {
 // @ts-expect-error - plain JS helper alongside this script, deliberately untyped
 import {
   deckScore,
-  extractObjectives,
+  extractPages,
   extractText,
   findAssessments,
   findSchedule,
+  outlineDeck,
   firstDateIn,
   mergeLectures,
   readLecturesFile,
@@ -159,13 +161,7 @@ const MAX_EXTRACTIONS_PER_COURSE = 40
 let extractions = 0
 
 async function textOf(path: string): Promise<string | null> {
-  if (extractions >= MAX_EXTRACTIONS_PER_COURSE) return null
-  try {
-    if (statSync(path).size > MAX_PDF_BYTES) return null
-  } catch {
-    return null
-  }
-  extractions++
+  if (!affordable(path)) return null
   try {
     return (await extractText(path)) as string
   } catch {
@@ -174,48 +170,93 @@ async function textOf(path: string): Promise<string | null> {
   }
 }
 
+/** The same file, one string per slide. See `extractPages`. */
+async function pagesOf(path: string): Promise<string[] | null> {
+  if (!affordable(path)) return null
+  try {
+    const pages = (await extractPages(path)) as string[]
+    return pages.length > 0 ? pages : null
+  } catch {
+    return null
+  }
+}
+
+function affordable(path: string): boolean {
+  if (extractions >= MAX_EXTRACTIONS_PER_COURSE) return false
+  try {
+    if (statSync(path).size > MAX_PDF_BYTES) return false
+  } catch {
+    return false
+  }
+  extractions++
+  return true
+}
+
 /** `Week 3`, `Unit 12`, `Lecture 4` → 3, 12, 4. */
 function sectionWeek(section: string): number | null {
   const m = /^(?:week|unit|lecture|module|topic)\s*#?\s*(\d{1,2})\b/i.exec(section.trim())
   return m ? Number(m[1]) : null
 }
 
+/** `2440 Lecture 3.pdf` → 3, for ordering two decks inside one week folder. */
+function lectureNumberIn(name: string): number | null {
+  const m = /\b(?:lecture|lesson|class|session)\s*#?\s*0?(\d{1,2})\b/i.exec(name)
+  return m ? Number(m[1]) : null
+}
+
 /**
- * What each week's own slides say they cover.
+ * Every lecture deck each week holds, and what each one covers.
  *
- * One deck per week — the first that yields anything. Opening every file in a
- * folder of thirty would cost minutes for no extra signal.
+ * Reads *all* of a week's decks, not one. A week folder routinely holds two
+ * lectures — this term's Classics folder has "Lecture 1" and "Lecture 2" side
+ * by side in Week 1 — and stopping at the first meant half of every week went
+ * unread and unshown.
+ *
+ * Decks are ordered by the lecture number on their title slide where they
+ * carry one, and by filename where they do not, so the panel reads in the
+ * order the week was taught.
  */
-async function detailFromSlides(
+async function outlinesByWeek(
   dir: string,
   materials: Material[],
-): Promise<Map<number, { title: string; objectives: string }>> {
+): Promise<Map<number, DeckOutline[]>> {
   const byWeek = new Map<number, Material[]>()
   for (const m of materials) {
     if (m.kind !== 'pdf') continue
     const week = sectionWeek(m.section)
     if (week === null) continue
+    // Score rather than pattern-match: a week's folder holds the deck next to
+    // problem sets and solutions, and the wrong pick yields "The figure shows
+    // the circular flow model" where the lecture's own summary was wanted.
+    if (deckScore(m.name) < 0) continue
     const list = byWeek.get(week)
     if (list) list.push(m)
     else byWeek.set(week, [m])
   }
 
-  const out = new Map<number, { title: string; objectives: string }>()
+  const out = new Map<number, DeckOutline[]>()
   for (const [week, files] of byWeek) {
-    // Score rather than pattern-match: a week's folder holds the deck next to
-    // problem sets and solutions, and the wrong pick yields "The figure shows
-    // the circular flow model" where the objectives slide was wanted.
-    const ordered = [...files].sort((a, b) => deckScore(b.name) - deckScore(a.name))
+    const ordered = [...files].sort((a, b) => {
+      const an = lectureNumberIn(a.name)
+      const bn = lectureNumberIn(b.name)
+      if (an !== null && bn !== null) return an - bn
+      if (an !== null) return -1
+      if (bn !== null) return 1
+      return a.name.localeCompare(b.name)
+    })
+
+    const decks: DeckOutline[] = []
     for (const file of ordered) {
-      if (deckScore(file.name) < 0) break
-      const text = await textOf(join(dir, file.section, file.name))
-      if (!text) continue
-      const found = extractObjectives(text) as { title: string; objectives: string }
-      if (found.objectives || found.title) {
-        out.set(week, found)
-        break
-      }
+      const pages = await pagesOf(join(dir, file.section, file.name))
+      if (!pages) continue
+      const outline = outlineDeck(pages) as Omit<DeckOutline, 'file'>
+      // A deck that yielded neither a heading nor a topic has nothing to say
+      // and should not appear as an empty card.
+      if (outline.topics.length === 0 && !outline.title) continue
+      decks.push({ ...outline, file: file.name })
     }
+
+    if (decks.length > 0) out.set(week, decks)
   }
   return out
 }
@@ -262,25 +303,34 @@ async function scanLectures(
     }
   }
 
-  // Then each week's own deck, which is where real detail comes from. The
-  // deck's heading also stands in as a topic for a course with no syllabus
-  // table — better than an empty row, and still the course's own words.
-  const slides = await detailFromSlides(dir, materials)
+  // Then every deck each week holds. This is where the real answer to "what
+  // are we covering this week" comes from — the syllabus gives a topic, the
+  // decks give the lecture.
+  //
+  // Deliberately not folded into `detail`. That column is the one a human
+  // writes in lectures.tsv, and copying a parse into it would both make a
+  // machine reading indistinguishable from a written one and print the same
+  // list twice on the screen.
+  const outlines = await outlinesByWeek(dir, materials)
   for (const lecture of parsed) {
-    const found = slides.get(lecture.week)
-    if (!found) continue
-    lecture.topic ||= found.title
-    lecture.detail ||= found.objectives
+    const decks = outlines.get(lecture.week)
+    if (!decks) continue
+    lecture.decks = decks
+    // A syllabus with no schedule table leaves the row unlabelled; the first
+    // deck's own heading is a better label than an empty one, and is still
+    // the course's own words.
+    lecture.topic ||= decks[0].title
   }
-  for (const [week, found] of slides) {
+  for (const [week, decks] of outlines) {
     if (parsed.some((l) => l.week === week)) continue
     parsed.push({
       week,
-      topic: found.title,
+      topic: decks[0].title,
       dates: '',
       readings: '',
-      detail: found.objectives,
-      detailSource: 'slides',
+      detail: '',
+      detailSource: 'none',
+      decks,
     })
   }
   parsed.sort((a, b) => a.week - b.week)
@@ -304,10 +354,18 @@ async function scanLectures(
     )
   }
 
-  // Where each row's detail came from, so the screen can say so.
+  // `lectures.tsv` carries no decks and never will — they are re-read from the
+  // PDFs every scan, so they are re-attached after the merge rather than
+  // round-tripped through a file a human edits.
+  for (const l of merged) {
+    l.decks = outlines.get(l.week) ?? []
+  }
+
+  // Where each row's detail came from, so the screen can say so. Only a human
+  // writes detail now, so there are two answers rather than three.
   const fileDetail = new Map((fromFile ?? []).map((l) => [l.week, l.detail]))
   for (const l of merged) {
-    l.detailSource = !l.detail ? 'none' : fileDetail.get(l.week) ? 'file' : 'slides'
+    l.detailSource = l.detail && fileDetail.get(l.week) ? 'file' : 'none'
   }
 
   return { lectures: merged, source: fromFile ? 'file' : 'pdf', assessments, firstDate }
@@ -439,11 +497,15 @@ if (!existsSync(ROOT)) {
 
     courses.push(scanned)
 
-    const withDetail = lectures.filter((l) => l.detail).length
+    // Report what was actually read, since that is what the screen shows: how
+    // many decks were opened and how many of them said what they cover.
+    const decks = lectures.flatMap((l) => l.decks)
+    const outlined = decks.filter((d) => d.topics.length > 0).length
     const topics =
       source === 'none'
         ? 'no syllabus'
-        : `${lectures.length} weeks, ${withDetail} with detail` +
+        : `${lectures.length} weeks` +
+          (decks.length ? `, ${decks.length} decks (${outlined} outlined)` : ', no decks') +
           (assessments.length ? `, ${assessments.length} dated` : '')
     console.log(
       `ok    ${scanned.code.padEnd(16)} ${String(scanned.fileCount).padStart(4)} files  ` +

@@ -149,6 +149,32 @@ export interface Material {
   modified: number
 }
 
+/**
+ * One lecture deck, as its own slides describe it.
+ *
+ * Every field is read off the file. Nothing here is written by the app: a deck
+ * with nothing to say produces an empty `topics`, never a plausible-sounding
+ * one.
+ */
+export interface DeckOutline {
+  /** The file it came from, so a topic can be traced back to a slide. */
+  file: string
+  /** The lecture's own heading — `Historical Background I: Greece 480-404 BC`. */
+  title: string
+  /** `Lecture 3` off the title slide. Null when the deck does not number itself. */
+  number: number | null
+  slides: number
+  /** What it covers, in the deck's own words and its own order. */
+  topics: string[]
+  /**
+   * Which reading produced `topics`.
+   *
+   * `summary` — the deck's own "Main Points" or objectives slide, verbatim.
+   * `sections` — the heading off each slide, which is its table of contents.
+   */
+  source: 'summary' | 'sections'
+}
+
 /** One week of a course, assembled from the syllabus and that week's slides. */
 export interface Lecture {
   /** 1-based week of term. */
@@ -167,6 +193,8 @@ export interface Lecture {
    */
   detail: string
   detailSource: 'file' | 'slides' | 'none'
+  /** Every deck that week's folder holds, in lecture order. */
+  decks: DeckOutline[]
 }
 
 /** A dated row in the syllabus that is not a lecture. */

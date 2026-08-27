@@ -882,8 +882,8 @@ a { color: var(--accent); text-decoration: none; }
 
 .ld-lec__row {
   display: grid;
-  grid-template-columns: 24px 1fr auto;
-  gap: 12px;
+  grid-template-columns: 24px 1fr auto auto;
+  gap: 10px;
   align-items: center;
   width: 100%;
   padding: 11px 0;
@@ -912,6 +912,18 @@ a { color: var(--accent); text-decoration: none; }
 .ld-lec--now .ld-lec__week { color: var(--bg); background: var(--accent); }
 .ld-lec--now .ld-lec__topic { font-weight: 600; color: var(--fg); }
 .ld-lec--open .ld-lec__topic { color: var(--fg); }
+.ld-lec__count {
+  font-family: var(--font-label);
+  font-weight: 500;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--fg-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+.ld-lec--open .ld-lec__count { color: var(--accent); border-color: var(--accent-deep); }
 .ld-lec__chevron {
   display: flex;
   color: var(--fg-3);
@@ -962,6 +974,38 @@ a { color: var(--accent); text-decoration: none; }
   border-radius: 50%;
   background: var(--accent);
 }
+/* One lecture inside the week's panel. Separated by space and a hairline
+   rather than by another box: a card inside a card inside a card is where a
+   phone screen stops being readable. */
+.ld-deck + .ld-deck,
+.ld-lec__note + .ld-deck {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.ld-deck__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+}
+.ld-deck__no { color: var(--accent); }
+.ld-deck__slides { color: var(--fg-3); font-weight: 500; }
+.ld-deck__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  margin: 5px 0 9px;
+  text-wrap: pretty;
+}
+
 /* Said plainly, because a missing summary is a fact about this Mac and not an
    error — and because the fix for it is two sentences long. */
 .ld-lec__none {

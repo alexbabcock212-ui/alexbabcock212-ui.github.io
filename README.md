@@ -172,20 +172,49 @@ Each course folder holds a `lectures.tsv`, four tab-separated columns:
 2	The Economic Problem	2
 ```
 
-`npm run scan` writes it. Three sources, best available winning **per field**:
+`npm run scan` writes it. Two sources fill the row, best available winning
+**per field**:
 
 1. **What you wrote.** Anything non-empty in the file is never overwritten.
-2. **That week's slides.** Decks often open with a learning-objectives slide —
-   measured across twelve real decks, four had one. The rest give up their title
-   line, which is thin but is still the deck's own words. `deckScore` picks the
-   lecture deck out of a folder that also holds problem sets and solutions;
-   without it, week 1 of Econ 1022 summarised itself as "The figure shows the
-   circular flow model", which came from an exercise sheet.
-3. **The syllabus row** — topic, dates and chapters from the schedule table.
+2. **The syllabus row** — topic, dates and chapters from the schedule table.
+
+`detail` is the exception: nothing is ever parsed into it. It is the note *you*
+write about a week, and the screen labels it as yours.
+
+#### What each lecture covers
+
+That comes from the decks, and it is re-read from the PDFs on every scan rather
+than round-tripped through a file you edit. **Every** deck in a week folder is
+read — a week routinely holds two lectures — ordered by the lecture number on
+its own title slide.
+
+Each deck is read twice over, best first:
+
+1. **Its own summary slide.** A deck that opens with "Main Points", "Learning
+   Objectives", "Outline" or "Agenda" has already answered the question, in the
+   lecturer's words. Where a deck has both a *points* and a *questions* slide
+   the points win: they are the topics, the questions are about them.
+2. **Its slide headings.** One slide is one idea, so the first line of a slide
+   is a section title and the sequence of them is the lecture's table of
+   contents. A section running over four slides is one topic, not four.
+
+The screen says which of the two it got, because they are different claims
+about how closely the summary matches the lecture.
+
+This is why decks are read **page by page** (`extractPages`) while a syllabus is
+read whole (`extractText`): in a deck the page *is* the unit of meaning, and
+merging destroys the only structure it has.
+
+The deck's real heading is the `Lecture 3: …` line on the title slide, not the
+big line above it — that is usually the course name, identical on all twelve
+decks and worthless as a lecture title. It wraps, so the continuation is taken
+too. `deckScore` picks lecture decks out of a folder that also holds problem
+sets and solutions; without it, week 1 of Econ 1022 summarised itself as "The
+figure shows the circular flow model", which came from an exercise sheet.
 
 Nothing is ever generated. Every word on the Courses screen came out of a file
-in that folder, which is why a week with no readable source shows a topic and
-nothing else rather than a plausible-sounding sentence.
+in that folder, which is why a week with no deck says exactly that and names
+the folder to drop one into, rather than showing a plausible-sounding sentence.
 
 Empty fields fill themselves in as slides appear, and the file is only rewritten
 when a scan actually found something new. Delete it to start over from the PDFs.
@@ -331,7 +360,7 @@ scripts/
   doctor.mjs              read-only diagnosis of the credential chain
   lib/setup-lib.mjs       shared by both, including the Google probe
   scan-courses.ts         the Desktop scan
-  lib/syllabus.mjs        PDF text → a week-by-week schedule
+  lib/syllabus.mjs        PDF text → a schedule, and a deck → its outline
   check.ts                data-shaping checks
   render.tsx              SSR render of every tab
   deploy.sh               scan + build + publish to gh-pages
@@ -393,6 +422,29 @@ npm i -D sharp && node scripts/make-icons.mjs && npm un sharp
 
 ## Decisions worth knowing
 
+- **A lecture summary is read, never written.** Every topic under a week comes
+  out of that week's own slides, in two readings. A deck that opens with a
+  "Main Points" or "Learning Objectives" slide has already answered the
+  question in the lecturer's own words, and that is used verbatim. Failing
+  that, the *headings* are the answer: one slide is one idea, so the first line
+  of each slide is a section title and the sequence of them is the lecture's
+  table of contents. The screen labels which of the two it got, because they
+  are different claims about how well the summary matches the lecture. A deck
+  with nothing to say yields an empty list, never a plausible-sounding one.
+- **A deck is read page by page; a syllabus is read whole.** `extractText`
+  merges the pages, which is right for prose and destroys a deck — in a deck
+  the page *is* the unit of meaning. `extractPages` is the one decks use.
+- **Every deck in a week is read, not the first.** A week folder routinely
+  holds two lectures; this term's Classics folder has "Lecture 1" and
+  "Lecture 2" side by side in Week 1. Stopping at the first meant half of
+  every week went unread. Decks order by the lecture number on their own title
+  slide, which is also where their real heading lives — the big line at the top
+  is usually the *course* name and worthless as a lecture title.
+- **`detail` in `lectures.tsv` is yours alone.** Nothing is parsed into it. It
+  used to receive whatever the objectives slide said, which made a machine
+  reading indistinguishable from a written one in a file a human edits, and
+  printed the same list twice on the screen. It now holds only what you write,
+  and the screen labels it as your note.
 - **Nothing is invented.** Where a source cannot know something the field stays
   empty and the view hides it rather than drawing a plausible-looking bar.
   `progress` is always 0 for this reason; a syllabus gap produces no topic rather

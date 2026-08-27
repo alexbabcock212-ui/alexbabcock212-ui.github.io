@@ -4,12 +4,13 @@
  * Two sources, doing different jobs:
  *
  *   - the **outline** gives the schedule table — week, dates, topic, chapters;
- *   - each week's **lecture deck** gives what that lecture actually covers,
- *     because decks very often open with a learning-objectives slide.
+ *   - each week's **lecture decks** give what those lectures actually cover,
+ *     read from the deck's own summary slide where it wrote one and from its
+ *     slide headings where it did not.
  *
  * Nothing here writes a summary. Every word it produces was already in one of
- * the user's files. Where a deck has no objectives slide it falls back to the
- * deck's own title line, which is thin but true, rather than inventing prose.
+ * the user's files. A deck with nothing to say yields an empty list, never a
+ * plausible-sounding one.
  *
  * Everything lands in an editable `lectures.tsv` that wins field by field, so a
  * bad parse is a one-time correction that never regresses.
@@ -31,6 +32,22 @@ export async function extractText(path) {
   const pdf = await getDocumentProxy(new Uint8Array(await readFile(path)))
   const { text } = await extract(pdf, { mergePages: true })
   return text
+}
+
+/**
+ * The same document, one string per page.
+ *
+ * A syllabus is prose and reads fine merged. A deck is not: in a deck the page
+ * *is* the unit of meaning — one slide, one heading, one idea — and merging
+ * throws away the only structure it has. Everything that reads a deck wants
+ * this; everything that reads an outline wants the one above.
+ */
+export async function extractPages(path) {
+  const { extractText: extract, getDocumentProxy } = await import('unpdf')
+  const { readFile } = await import('node:fs/promises')
+  const pdf = await getDocumentProxy(new Uint8Array(await readFile(path)))
+  const { text } = await extract(pdf, { mergePages: false })
+  return Array.isArray(text) ? text : [text]
 }
 
 /* ── the schedule table ────────────────────────────────────────────────── */
@@ -202,9 +219,6 @@ const CUE =
 const NOISE =
   /^(©|copyright|\d+$|slide \d+|pearson|mcgraw|wiley|all rights reserved|www\.|http)/i
 
-const MAX_POINTS = 4
-const MAX_DETAIL = 400
-
 const tidyPoint = (l) =>
   clean(l.replace(/^[◆•▪●○\-*–—]+\s*/, '').replace(/^\d+[.)]\s*/, ''))
 
@@ -250,44 +264,6 @@ function titleOf(lines) {
 }
 
 /**
- * What a deck says it will cover.
- *
- * Returns the deck's heading and, where it has one, its objectives slide. About
- * a third of real decks carry objectives; the rest give up only a title. Both
- * are the deck's own words — nothing here writes prose.
- */
-export function extractObjectives(text) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l && !NOISE.test(l))
-
-  const title = titleOf(lines)
-  const cue = lines.findIndex((l) => CUE.test(l))
-  if (cue === -1) return { title, objectives: '' }
-
-  const points = []
-  let buffer = ''
-
-  for (const line of lines.slice(cue + 1, cue + 20)) {
-    if (CUE.test(line)) break
-    // Decks wrap one bullet across several text runs; a new bullet marker
-    // closes the previous one.
-    const starts = /^[◆•▪●○\-*–—]|^\d+[.)]\s/.test(line)
-    if (starts && buffer) {
-      points.push(tidyPoint(buffer))
-      buffer = ''
-    }
-    buffer = buffer ? `${buffer} ${line}` : line
-    if (points.length >= MAX_POINTS) break
-  }
-  if (buffer && points.length < MAX_POINTS) points.push(tidyPoint(buffer))
-
-  const kept = points.filter((p) => p.length > 8).slice(0, MAX_POINTS)
-  return { title, objectives: kept.join(' · ').slice(0, MAX_DETAIL) }
-}
-
-/**
  * How likely a file is to be the week's actual lecture deck.
  *
  * Worth scoring rather than pattern-matching: a folder holds the deck next to
@@ -307,6 +283,162 @@ export function deckScore(name) {
   return score
 }
 
+/* ── the outline of a deck ─────────────────────────────────────────────── */
+
+/**
+ * A slide whose *bullets* are the summary — the deck saying what it covers.
+ *
+ * Ranked, because a deck often has several: "Main Points" is a list of topics
+ * and "Main Questions" is a list of questions about them, and given both the
+ * first is the better answer to "what will I learn this week".
+ */
+const SUMMARY_SLIDES = [
+  /^(main |key )?(points|topics|themes)\b/i,
+  /^(learning )?(objectives|outcomes|goals)\b/i,
+  /^(outline|agenda|overview|road ?map)\b/i,
+  /^(main |key )?questions\b/i,
+  /^(what we|topics) (will )?cover/i,
+]
+
+/** Slide headings that are furniture rather than subject matter. */
+const FURNITURE =
+  /^(questions\??|any questions\??|thank you|thanks|references?|bibliography|works cited|sources|next (class|time|week|lecture)|announcements?|reminders?|recap|review|summary|conclusion|the end|discussion|break|image|map from|figure \d)/i
+
+/** How many headings a week's panel can carry before it stops being a summary. */
+const MAX_TOPICS = 12
+
+const linesOf = (page) =>
+  page
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !NOISE.test(l))
+
+/** `• foo` / `1) foo` — a bullet marker, meaning a new point starts here. */
+const STARTS_POINT = /^[◆•▪●○➔➢‣·\-*–—]|^\d+[.)]\s/
+
+/**
+ * The points under a heading.
+ *
+ * Decks wrap one bullet across several text runs, so a run only closes the
+ * previous point when it opens with a marker of its own. Without this a single
+ * bullet arrives as four fragments, each cut mid-clause.
+ */
+function pointsFrom(lines, limit) {
+  const points = []
+  let buffer = ''
+
+  for (const line of lines) {
+    if (STARTS_POINT.test(line) && buffer) {
+      points.push(tidyPoint(buffer))
+      buffer = ''
+      if (points.length >= limit) break
+    }
+    buffer = buffer ? `${buffer} ${line}` : line
+  }
+  if (buffer && points.length < limit) points.push(tidyPoint(buffer))
+
+  return points.filter((p) => p.length > 8 && p.length < 200).slice(0, limit)
+}
+
+/**
+ * `Lecture 3: Historical Background II: Greece 404-359 BC` on a title slide.
+ *
+ * Deliberately not `week`. A deck headed "Week 1 – The Enlightenment" is
+ * telling you which *week* it belongs to, and a week folder routinely holds
+ * two lectures — reading that 1 as a lecture number is how two decks end up
+ * claiming to be the same lecture.
+ */
+const LECTURE_LINE = /^(?:lecture|lesson|class|session)\s*(\d{1,2})\s*[:.\-–—]\s*(.*)$/i
+
+/** A parenthetical, a date, a name — the rest of a title slide's furniture. */
+const TITLE_FURNITURE = /^[([]|^(dr|prof|professor|mr|ms|mrs)\b|^\d{4}$/i
+
+/**
+ * What one deck calls itself, and which lecture it is.
+ *
+ * Every deck in a course tends to carry the *course* name on its title slide,
+ * which is worthless as a lecture heading — but underneath it there is usually
+ * a "Lecture 3: …" line, which is both the real heading and the deck's place in
+ * the term. That line wraps, and the wrap is the rest of the title slide, so
+ * the continuation is taken rather than the heading left cut mid-phrase.
+ */
+export function deckHeading(pages) {
+  const lines = linesOf(pages[0] ?? '')
+
+  for (let i = 0; i < Math.min(lines.length, 8); i++) {
+    const m = LECTURE_LINE.exec(lines[i])
+    if (!m) continue
+
+    const parts = [m[2]]
+    for (const next of lines.slice(i + 1, i + 3)) {
+      if (TITLE_FURNITURE.test(next) || LECTURE_LINE.test(next)) break
+      parts.push(next)
+    }
+    return { number: Number(m[1]), title: clean(parts.join(' ')) }
+  }
+
+  return { number: null, title: titleOf(lines) }
+}
+
+/**
+ * What a lecture deck covers, in the deck's own words.
+ *
+ * Two readings, best first.
+ *
+ * A deck that opens with a "Main Points" or "Learning Objectives" slide has
+ * already answered the question, in the lecturer's own summary, and that is
+ * used verbatim.
+ *
+ * Failing that, the *headings* are the answer. One slide is one idea, so the
+ * first line of each slide is a section title and the sequence of them is the
+ * lecture's table of contents. That is why this reads pages rather than the
+ * merged text: merging is what destroys the one structure a deck has.
+ *
+ * Nothing is written here either way. Consecutive repeats collapse (a section
+ * running over four slides is one topic, not four), furniture is dropped, and
+ * what is left is the deck's own order.
+ */
+export function outlineDeck(pages) {
+  const slides = pages.length
+  const { number, title } = deckHeading(pages)
+
+  const heads = []
+  for (let i = 0; i < pages.length; i++) {
+    const lines = linesOf(pages[i])
+    if (lines.length === 0) continue
+    heads.push({ page: i, head: lines[0], rest: lines.slice(1) })
+  }
+
+  // 1. The deck's own summary slide, if it wrote one.
+  for (const pattern of SUMMARY_SLIDES) {
+    const slide = heads.find((h) => pattern.test(h.head))
+    if (!slide) continue
+    const points = pointsFrom(slide.rest, MAX_TOPICS)
+    if (points.length >= 2) {
+      return { number, title, slides, topics: points, source: 'summary' }
+    }
+  }
+
+  // 2. Otherwise the section headings, in order.
+  const topics = []
+  const seen = new Set()
+  for (const { page, head } of heads) {
+    // The title slide is the deck's name, not one of its sections.
+    if (page === 0) continue
+    if (STARTS_POINT.test(head)) continue
+    if (FURNITURE.test(head)) continue
+    if (head.length < 4 || head.length > 90) continue
+
+    const key = head.toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    topics.push(clean(head))
+    if (topics.length >= MAX_TOPICS) break
+  }
+
+  return { number, title, slides, topics, source: 'sections' }
+}
+
 /* ── the editable file ─────────────────────────────────────────────────── */
 
 const HEADER = `# Lecture topics for this course, one row per week of term.
@@ -315,9 +447,14 @@ const HEADER = `# Lecture topics for this course, one row per week of term.
 #
 # Lecture dates are not a column here — they come from the syllabus every scan.
 #
+# 'detail' is yours. Nothing is ever parsed into it: what each lecture covers
+# is read straight from that week's slides every scan and shown under the week,
+# so this column is for the note you want above all that, or for a week whose
+# deck you do not have. It shows on the screen labelled as your note.
+#
 # Anything you write here is kept. Empty fields get filled in by later scans
-# from the syllabus and that week's slides; fields you have filled in are never
-# overwritten. Delete the file entirely to start over from the PDFs.
+# from the syllabus; fields you have filled in are never overwritten. Delete
+# the file entirely to start over from the PDFs.
 `
 
 /** Parse the editable file. Tolerates the older two-column form. */
