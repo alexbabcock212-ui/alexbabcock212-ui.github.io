@@ -17,6 +17,7 @@ import type { CalendarEvent } from '../src/data/sources/calendar'
 import { sortSections, toCourses } from '../src/data/sources/courses'
 import { daysUntil, localDate, toDeadlines, whenLabel } from '../src/data/sources/tasks'
 import { agoLabel, normalise, toBrief, toGroups } from '../src/data/sources/markets'
+import { loadCachedPayload } from '../src/data/cache'
 import { isStale, lastMorning, nextMorning } from '../src/data/morning'
 import { currentWeek, topicForWeek } from '../src/data/sources/term'
 import { freshness } from '../src/data/dashboard'
@@ -247,6 +248,45 @@ eq('and says nothing when there is nothing', toBrief([]), null)
 
 eq('headline ages read as labels', agoLabel(NOW.getTime() - 2 * 3_600_000, NOW), '2H AGO')
 eq('a day old is yesterday', agoLabel(NOW.getTime() - 26 * 3_600_000, NOW), 'YESTERDAY')
+
+console.log('— the payload cache —')
+// A cache written by a build that predates a feed is the upgrade path every
+// installed device takes, and reading `.ok` off a feed that is not there is a
+// blank screen. Stand in for localStorage; there is none in this environment.
+const store = new Map<string, string>()
+;(globalThis as { localStorage?: unknown }).localStorage = {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => void store.set(k, v),
+  removeItem: (k: string) => void store.delete(k),
+}
+
+const CACHE_KEY = 'life-dashboard:payload'
+const feed = { ok: true, items: [] }
+const current = {
+  fetchedAt: NOW.getTime(),
+  calendar: feed,
+  allDay: feed,
+  tasks: feed,
+  quotes: feed,
+  headlines: feed,
+}
+const put = (payload: unknown) => store.set(CACHE_KEY, JSON.stringify(payload))
+
+put(current)
+eq('this build\'s shape is kept', loadCachedPayload(NOW.getTime()) !== null, true)
+
+// Exactly what the previous release wrote: a mail feed, and no market ones.
+put({ fetchedAt: NOW.getTime(), calendar: feed, allDay: feed, tasks: feed, mail: feed })
+eq('a payload from an older build is discarded', loadCachedPayload(NOW.getTime()), null)
+
+put({ ...current, quotes: undefined })
+eq('so is one missing any single feed', loadCachedPayload(NOW.getTime()), null)
+
+put({ ...current, fetchedAt: NOW.getTime() - 15 * 86_400_000 })
+eq('and one older than the window', loadCachedPayload(NOW.getTime()), null)
+
+store.clear()
+eq('an empty cache is not an error', loadCachedPayload(NOW.getTime()), null)
 
 console.log('— the 6:45 rule —')
 const morningOf = (d: number, h: number, m = 0) => new Date(2026, 7, d, h, m)

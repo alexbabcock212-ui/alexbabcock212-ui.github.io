@@ -6,12 +6,30 @@
  * still answers "what are my classes on Thursday?" correctly — the screen fills
  * from here on launch, and the network read that follows just corrects it.
  */
-import type { Payload } from './payload'
+import type { Feed, Payload } from './payload'
 
 const KEY = 'life-dashboard:payload'
 
 /** Past this the cached window no longer reaches today. */
 const WINDOW_DAYS = 14
+
+/**
+ * Every feed this build reads.
+ *
+ * A cache written by an older build is missing whichever feeds that build did
+ * not know about — a fortnight of them can outlive a deploy — and the shaping
+ * code reads `.ok` off each one by name. Half-rendering such a payload is a
+ * blank screen on the first launch after every schema change, which is exactly
+ * what removing the mail feed and adding the market ones caused. So a payload
+ * that is not this build's shape is discarded and refetched, not repaired.
+ */
+const FEEDS = ['calendar', 'allDay', 'tasks', 'quotes', 'headlines'] as const
+
+const isCurrentShape = (payload: Payload) =>
+  FEEDS.every((name) => {
+    const feed: Feed<unknown> | undefined = payload[name]
+    return feed != null && Array.isArray(feed.items)
+  })
 
 export function loadCachedPayload(now = Date.now()): Payload | null {
   try {
@@ -19,7 +37,7 @@ export function loadCachedPayload(now = Date.now()): Payload | null {
     if (!raw) return null
 
     const payload = JSON.parse(raw) as Payload
-    if (!payload?.fetchedAt || !payload.calendar) return null
+    if (!payload?.fetchedAt || !isCurrentShape(payload)) return null
     if (now - payload.fetchedAt > WINDOW_DAYS * 86_400_000) return null
 
     return payload
