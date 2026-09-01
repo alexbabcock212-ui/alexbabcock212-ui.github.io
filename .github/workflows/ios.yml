@@ -1,0 +1,111 @@
+# Build the iOS app on GitHub's Macs.
+#
+# This exists because Xcode will not install on the machine this project is
+# developed on — a pre-release macOS the App Store's Xcode does not cover — and
+# because it is a better arrangement anyway. macOS runners are free and uncapped
+# on public repositories, and the .ipa this produces is *unsigned*, which is
+# what AltStore and SideStore want: they re-sign it with your own free Apple ID
+# on the way onto the phone, and refresh it before the seven-day profile expires.
+# That refresh is the whole point. Signing here instead would need a paid
+# account and would put the weekly chore back.
+name: iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'ios/**'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'capacitor.config.ts'
+      - 'package-lock.json'
+      - '.github/workflows/ios.yml'
+
+# Only the newest build of a branch matters; cancel the ones it overtook.
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write # to refresh the ios-latest release the phone installs from
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # An address, not a credential — the README is explicit about that, and
+      # every request through it still has to carry the device key. It lives in
+      # a repository *variable* rather than a secret for exactly that reason.
+      - name: Write .env
+        run: echo "VITE_API_BASE=${{ vars.VITE_API_BASE }}" > .env
+
+      - name: Check it is actually set
+        run: |
+          if ! grep -qE '^VITE_API_BASE=\S' .env; then
+            echo "::error::The VITE_API_BASE repository variable is empty." \
+                 "Set it with: gh variable set VITE_API_BASE --body 'https://…workers.dev'"
+            exit 1
+          fi
+
+      # The Desktop scan cannot run here — there is no Desktop. The snapshot
+      # committed at src/data/courses.generated.json is what ships, exactly as
+      # it does on the web, so run `npm run scan` on the Mac and commit before
+      # expecting new coursework to appear in the app.
+      - run: SKIP_SCAN=1 npm run build
+
+      - run: npx cap sync ios
+
+      - name: Build unsigned
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ENABLE_BITCODE=NO
+
+      # An .ipa is a zip with the .app inside a folder called Payload. That is
+      # the entire format; there is nothing else to it for an unsigned build.
+      - name: Package the .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry LifeDashboard.ipa Payload
+          ls -lh LifeDashboard.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LifeDashboard-ipa
+          path: LifeDashboard.ipa
+          retention-days: 30
+
+      # A release asset has a plain public URL, which is what the phone needs:
+      # downloading an Actions artifact requires being logged in to GitHub.
+      # One rolling tag rather than a new one per build — the phone should
+      # always be pointed at the same address.
+      - name: Publish to the rolling release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ios-latest --yes --cleanup-tag || true
+          gh release create ios-latest LifeDashboard.ipa \
+            --title "Life Dashboard — latest iOS build" \
+            --notes "Unsigned build of ${{ github.sha }}. Install with AltStore or SideStore, which sign it with your own Apple ID." \
+            --prerelease
