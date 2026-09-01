@@ -11,7 +11,10 @@ compatibility_date = "2026-08-01"
 #   npx wrangler secret put DASHBOARD_TOKEN
 #   npx wrangler secret put SETUP_TOKEN
 [vars]
-ALLOWED_ORIGINS = "https://alexbabcock212-ui.github.io,http://localhost:5173"
+# The web app on Pages, the dev server, and the native iOS build — a Capacitor
+# WKWebView serves the bundle from `capacitor://localhost`, so that is the
+# Origin it sends and it has to be allowed by name like any other.
+ALLOWED_ORIGINS = "https://alexbabcock212-ui.github.io,http://localhost:5173,http://localhost:5199,capacitor://localhost"
 
 # Calendars to leave out, by name. Google's holiday and birthday feeds are
 # skipped automatically; these are the ones only you can judge. Everything else

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732" width="2732" height="2732">
+  <!-- The launch screen. Solid app ground, so launching opens onto the same
+       colour the app renders on rather than flashing white first. -->
+  <rect width="2732" height="2732" fill="#0d0f13"/>
+  <g transform="translate(1122 1178) scale(0.9)">
+    <rect x="0" y="0" width="18" height="376" rx="9" fill="#55719c"/>
+    <rect x="62" y="10" width="374" height="90" rx="45" fill="#eef0f4"/>
+    <rect x="62" y="143" width="262" height="90" rx="45" fill="#8fb0dd"/>
+    <rect x="62" y="276" width="324" height="90" rx="45" fill="#55719c"/>
+  </g>
+</svg>

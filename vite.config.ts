@@ -8,6 +8,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registration is a decision, not a side effect of loading: the same
+      // bundle also ships inside the native iOS app, where a service worker is
+      // useless at best. See src/data/serviceWorker.ts.
+      injectRegister: null,
       includeAssets: ['favicon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Life Dashboard',

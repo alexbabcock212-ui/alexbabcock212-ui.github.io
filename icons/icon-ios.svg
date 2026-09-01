@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The iOS source. Square and full-bleed on purpose: iOS masks the icon into
+       its own squircle, so baking corners in here rounds it twice and leaves
+       transparent notches. Sized between the web icon and the Android maskable
+       one, because iOS's mask crops far less than a circle does. -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#171d26"/>
+      <stop offset="1" stop-color="#0d0f13"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#ground)"/>
+  <rect x="266" y="300" width="20" height="424" rx="10" fill="#55719c"/>
+  <rect x="336" y="311" width="422" height="102" rx="51" fill="#eef0f4"/>
+  <rect x="336" y="461" width="296" height="102" rx="51" fill="#8fb0dd"/>
+  <rect x="336" y="611" width="366" height="102" rx="51" fill="#55719c"/>
+</svg>

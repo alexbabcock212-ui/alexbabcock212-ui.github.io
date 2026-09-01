@@ -387,6 +387,46 @@ The remaining literal hexes in the project are `theme_color` and
 `background_color` in the manifest and the two icon sources, none of which can
 read a CSS custom property. All four are `--bg`.
 
+### The native iOS app
+
+There is a second way to install it: `ios/` is a Capacitor project that wraps
+the *same* `dist/` bundle in a `WKWebView`. There is no second copy of the app
+and no native UI — the web build is the app.
+
+```bash
+npm run ios          # scan, build, stage into ios/
+npm run ios:open     # open the project in Xcode
+```
+
+Then in Xcode, once: **App target → Signing & Capabilities → Team**, set to your
+Apple ID. Pick your iPhone and Run.
+
+**What it costs to live with.** Signed with a free Apple ID, the provisioning
+profile **expires after seven days** — the icon stays, and tapping it says
+"Unable to Verify App" until you plug the phone in and Run again. The paid
+Developer Program ($99/yr) makes that a year. This was a deliberate choice, not
+an oversight: everything that would justify the fee — App Groups, so a Home
+Screen widget could share the app's data, and Push Notifications — is
+unavailable to free accounts anyway, so paying buys only the absence of the
+weekly chore.
+
+Three things about the native build differ from the website, and all three are
+load-bearing:
+
+- **Its origin is `capacitor://localhost`**, not the Pages host, so it is a
+  different CORS origin and is listed by name in `ALLOWED_ORIGINS`. Without
+  that every request fails inside the app while the website carries on working.
+- **It has its own storage.** The device key does not carry over from Safari;
+  the app opens on the key sheet once. `npm run ios` prints the command to put
+  the key on the clipboard without printing the key.
+- **No service worker.** Its assets are already local, custom schemes are not a
+  secure context, and a worker that did register would serve its cached copy in
+  front of a freshly built one — a rebuild that visibly does nothing. See
+  `src/data/serviceWorker.ts`; registration is gated on the protocol, which is
+  why `vite.config.ts` sets `injectRegister: null`.
+
+The web app is unaffected by any of it and stays deployed.
+
 ### Installing it on a phone
 
 The app is a PWA: open the URL, then Share → **Add to Home Screen**. It launches
