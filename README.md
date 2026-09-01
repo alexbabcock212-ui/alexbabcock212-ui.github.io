@@ -393,22 +393,52 @@ There is a second way to install it: `ios/` is a Capacitor project that wraps
 the *same* `dist/` bundle in a `WKWebView`. There is no second copy of the app
 and no native UI — the web build is the app.
 
+#### Building it
+
+**On GitHub, which is how it is actually built.** Xcode does not install on this
+Mac: it runs a pre-release macOS 27, the App Store's Xcode is 26.6 and gated to
+macOS 26.x, and Homebrew refuses to build for the same reason. Nothing to do
+with the chip — Xcode is Apple-Silicon native. So `.github/workflows/ios.yml`
+builds on GitHub's macOS runners, which are free and uncapped on public repos.
+It runs on every push to `main` that touches the app, and on demand:
+
+```bash
+gh workflow run ios.yml          # build now
+gh run watch                     # follow it
+```
+
+Each build lands twice: as a workflow artifact, and as the asset on the rolling
+`ios-latest` prerelease — one stable public URL, because downloading an artifact
+requires being logged in to GitHub and a phone should not have to be.
+
+**On a Mac with Xcode**, if you ever have one:
+
 ```bash
 npm run ios          # scan, build, stage into ios/
 npm run ios:open     # open the project in Xcode
 ```
 
-Then in Xcode, once: **App target → Signing & Capabilities → Team**, set to your
-Apple ID. Pick your iPhone and Run.
+Then **App target → Signing & Capabilities → Team**, set to your Apple ID; pick
+the phone and Run.
 
-**What it costs to live with.** Signed with a free Apple ID, the provisioning
-profile **expires after seven days** — the icon stays, and tapping it says
-"Unable to Verify App" until you plug the phone in and Run again. The paid
-Developer Program ($99/yr) makes that a year. This was a deliberate choice, not
-an oversight: everything that would justify the fee — App Groups, so a Home
-Screen widget could share the app's data, and Push Notifications — is
-unavailable to free accounts anyway, so paying buys only the absence of the
-weekly chore.
+#### Installing it
+
+The `.ipa` is deliberately **unsigned**. That is the point rather than a
+limitation: [AltStore](https://altstore.io) and
+[SideStore](https://sidestore.io) re-sign it with your own free Apple ID on the
+way onto the phone, and — the part that matters — **refresh it before the
+seven-day profile expires**.
+
+Without them a free-signed app is a weekly chore: the icon stays put and tapping
+it says "Unable to Verify App" until you plug into a Mac and build again. The
+paid Developer Program ($99/yr) would make the profile last a year, but it buys
+nothing else here — App Groups and Push Notifications, the two things that would
+justify it (a Home Screen widget needs the first), are closed to free accounts
+regardless, so the fee would purchase only the absence of the chore. Sideloading
+removes the chore for nothing.
+
+Point the sideloader at the `ios-latest` release asset and it will pick up new
+builds from the same URL.
 
 Three things about the native build differ from the website, and all three are
 load-bearing:
