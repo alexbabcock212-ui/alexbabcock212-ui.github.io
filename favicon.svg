@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- The mark: three bars off a rail, the day hour by hour, on the app's own
+       ground. The colours are the ground, accent, mid-accent and ink tokens
+       from src/styles/theme.css, written out because an icon cannot read a
+       CSS custom property. -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161b23"/>
+      <stop offset="1" stop-color="#0d0f13"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#ground)"/>
+  <rect x="120" y="140" width="10" height="232" rx="5" fill="#55719c"/>
+  <rect x="160" y="146" width="216" height="52" rx="26" fill="#eef0f4"/>
+  <rect x="160" y="230" width="152" height="52" rx="26" fill="#8fb0dd"/>
+  <rect x="160" y="314" width="188" height="52" rx="26" fill="#55719c"/>
+</svg>

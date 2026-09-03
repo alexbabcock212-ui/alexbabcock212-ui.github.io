@@ -1,0 +1,108 @@
+/* Standalone styles for the privacy and terms pages.
+   These sit outside the app bundle, so they cannot read Industry's custom
+   properties — the literal hexes below are copied from src/styles/industry.css
+   and are the only place in the project besides the manifest that does this. */
+
+:root {
+  --bg: #f2f2f3;
+  --text: #1d1f20;
+  --muted: #5d5d60;
+  --rule: #d4d4d7;
+  --navy: #1d2d3d;
+  --link: #416180;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 20px 64px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Barlow", system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+main { max-width: 42rem; margin: 0 auto; }
+
+header {
+  border-bottom: 2px solid var(--navy);
+  padding: 40px 0 14px;
+  margin-bottom: 28px;
+}
+
+.kicker {
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--link);
+}
+
+h1 {
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1.1;
+  margin: 4px 0 0;
+}
+
+h2 {
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  margin: 32px 0 8px;
+}
+
+p, li { text-wrap: pretty; }
+p { margin: 0 0 14px; }
+ul { margin: 0 0 14px; padding-left: 22px; }
+li { margin-bottom: 6px; }
+
+.updated { color: var(--muted); font-size: 14px; margin-top: 8px; }
+
+.lede { font-size: 18px; }
+
+a { color: var(--link); }
+a:hover { color: var(--navy); }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: #e7e7ea;
+  padding: 1px 4px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px solid var(--rule);
+}
+th {
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+footer {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+  font-size: 14px;
+  color: var(--muted);
+}
+footer a { margin-right: 14px; }
