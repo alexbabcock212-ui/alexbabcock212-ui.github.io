@@ -4,6 +4,7 @@ import StatusBar from './components/StatusBar'
 import TabBar from './components/TabBar'
 import CoursesView from './views/CoursesView'
 import DueView from './views/DueView'
+import GroceriesView from './views/GroceriesView'
 import MarketsView from './views/MarketsView'
 import TodayView from './views/TodayView'
 import { useDashboard } from './data/useDashboard'
@@ -76,6 +77,9 @@ export default function App({ userName = 'Alex', startTab = 'today' }: Props) {
               error={error}
             />
           )}
+          {/* Reads no dashboard: the receipts are baked in and the corrections
+              are this browser's. See views/GroceriesView.tsx. */}
+          {tab === 'groceries' && <GroceriesView />}
         </main>
 
         <TabBar active={tab} onChange={setTab} />

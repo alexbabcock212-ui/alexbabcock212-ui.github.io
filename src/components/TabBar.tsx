@@ -5,6 +5,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'courses', label: 'COURSES' },
   { id: 'due', label: 'DUE' },
   { id: 'markets', label: 'MARKETS' },
+  { id: 'groceries', label: 'FOOD' },
 ]
 
 interface Props {

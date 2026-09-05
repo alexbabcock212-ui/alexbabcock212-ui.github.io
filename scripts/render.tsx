@@ -11,7 +11,7 @@ import App from '../src/App'
 import KeyGate from '../src/components/KeyGate'
 import type { TabId } from '../src/data/types'
 
-const TABS: TabId[] = ['today', 'courses', 'due', 'markets']
+const TABS: TabId[] = ['today', 'courses', 'due', 'markets', 'groceries']
 
 let fails = 0
 

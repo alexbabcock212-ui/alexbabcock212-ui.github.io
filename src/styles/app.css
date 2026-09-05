@@ -1082,7 +1082,10 @@ a { color: var(--accent); text-decoration: none; }
 
 .ld-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* However many tabs there are, in equal columns — the count is TabBar's
+     business, not this file's. */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   flex: none;
   border-top: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg-sunken) 86%, transparent);
@@ -1210,3 +1213,398 @@ a { color: var(--accent); text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ── groceries ────────────────────────────────────────────────────────────
+   One headline number, its trend, and three lists beneath. The number is set
+   at the size the MARKETS lead uses, because it is the same kind of thing: the
+   one figure the screen exists to show.                                     */
+
+.ld-spend {
+  margin: 0 24px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-raised);
+  box-shadow: var(--edge);
+}
+.ld-spend__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.ld-spend__kicker,
+.ld-spend__target {
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+.ld-spend__kicker { color: var(--fg-2); }
+.ld-spend__target { color: var(--fg-3); white-space: nowrap; }
+
+.ld-spend__figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+}
+.ld-spend__value {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-variant-numeric: var(--numeric);
+}
+.ld-spend__unit {
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--fg-3);
+}
+/* The second number, deliberately at the size of a note: a week's cash out is
+   context for the figure above it, not a rival to it. */
+.ld-spend__second {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--fg-2);
+  font-variant-numeric: var(--numeric);
+}
+
+/* ── the trend ── */
+
+.ld-trend { margin-top: 18px; }
+.ld-trend__plot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 92px;
+}
+.ld-trend__week {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.ld-trend__bars {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+/* Cash out sits behind at full width; the week's real cost sits in front and
+   narrower, so the pair reads as one bar with a shadow rather than as two. */
+.ld-trend__cash,
+.ld-trend__spread {
+  position: absolute;
+  bottom: 0;
+  border-radius: 2px 2px 0 0;
+}
+.ld-trend__cash {
+  left: 0;
+  right: 0;
+  background: var(--accent-deep);
+}
+.ld-trend__spread {
+  left: 22%;
+  right: 22%;
+  background: var(--accent-mid);
+}
+.ld-trend__week.is-now .ld-trend__spread { background: var(--accent-lit); }
+.ld-trend__week.is-now .ld-trend__cash { background: var(--accent-mid); opacity: 0.5; }
+
+.ld-trend__target {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--line-lit);
+  pointer-events: none;
+}
+.ld-trend__target-label {
+  position: absolute;
+  right: 0;
+  top: -14px;
+  font-family: var(--font-label);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--fg-3);
+}
+
+.ld-trend__axis {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-family: var(--font-label);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--fg-3);
+}
+.ld-trend__legend { display: flex; align-items: center; gap: 6px; }
+.ld-trend__key {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.ld-trend__key--spread { background: var(--accent-mid); }
+.ld-trend__key--cash { background: var(--accent-deep); margin-left: 6px; }
+
+/* ── a note above a list ── */
+
+.ld-note {
+  margin: -4px 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
+/* ── receipts waiting to be checked ── */
+
+.ld-receipt {
+  border: 1px solid var(--line);
+  border-radius: var(--r-tight);
+  background: var(--bg-raised);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.ld-receipt.is-open { border-color: var(--line-lit); }
+.ld-receipt__head {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 13px 14px;
+  font-family: var(--font-body);
+  color: var(--fg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ld-receipt__store {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+}
+.ld-receipt__meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--fg-3);
+  font-variant-numeric: var(--numeric);
+}
+.ld-receipt__sum {
+  font-size: 15px;
+  font-variant-numeric: var(--numeric);
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+.ld-receipt__body {
+  padding: 4px 14px 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* ── correcting a line ──
+   Fields rather than a table: this is edited with a thumb, on a phone, while
+   looking at the paper it came from. */
+
+.ld-edit {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.ld-edit:last-of-type { border-bottom: 0; }
+.ld-edit__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ld-edit__item,
+.ld-edit__field {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-tight);
+  padding: 8px 10px;
+  min-width: 0;
+}
+.ld-edit__item { width: 100%; font-size: 14px; }
+.ld-edit__field:focus-visible,
+.ld-edit__item:focus-visible {
+  outline: none;
+  border-color: var(--accent-mid);
+}
+.ld-edit__cat {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.ld-edit__qty { width: 3.5em; text-align: center; }
+.ld-edit__pair {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--fg-3);
+  font-variant-numeric: var(--numeric);
+}
+.ld-edit__pair .ld-edit__field { font-variant-numeric: var(--numeric); }
+.ld-edit__money { width: 5em; }
+.ld-edit__drop {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg-3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ld-keep {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--accent-deep);
+  border-radius: var(--r-tight);
+  background: var(--accent-wash);
+  color: var(--accent-lit);
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+}
+
+/* ── what each thing costs to keep ── */
+
+.ld-item { border-bottom: 1px solid var(--line-soft); }
+.ld-item:last-child { border-bottom: 0; }
+.ld-item__head {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 11px 0;
+  font-family: var(--font-body);
+  color: var(--fg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ld-item__label { display: block; font-size: 14px; }
+.ld-item__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--fg-3);
+  font-variant-numeric: var(--numeric);
+}
+.ld-item__figure { text-align: right; }
+.ld-item__rate {
+  display: block;
+  font-size: 15px;
+  font-variant-numeric: var(--numeric);
+}
+/* How much of the week this one line is. A bar rather than a percentage: the
+   comparison between rows is the point, not the value of any one of them. */
+.ld-item__share {
+  display: block;
+  width: 54px;
+  height: 3px;
+  margin-top: 5px;
+  border-radius: var(--r-pill);
+  background: var(--line);
+  overflow: hidden;
+}
+.ld-item__share i {
+  display: block;
+  height: 100%;
+  background: var(--accent-mid);
+}
+.ld-item__body { padding: 0 0 14px; }
+.ld-item__set {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fg-2);
+}
+.ld-item__why {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
+/* ── running out ── */
+
+.ld-restock__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.ld-restock__row:last-child { border-bottom: 0; }
+.ld-restock__name { font-size: 14px; }
+.ld-restock__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--fg-3);
+  font-variant-numeric: var(--numeric);
+}
+.ld-restock__due {
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+.ld-restock__due.is-out { color: var(--down); }
+
+/* ── price moves ── */
+
+.ld-move {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.ld-move:last-child { border-bottom: 0; }
+.ld-move__name { font-size: 14px; }
+.ld-move__from {
+  font-size: 12px;
+  color: var(--fg-3);
+  font-variant-numeric: var(--numeric);
+  white-space: nowrap;
+}
+.ld-move__pct {
+  font-size: 14px;
+  font-variant-numeric: var(--numeric);
+  white-space: nowrap;
+}
+/* Inverted on purpose, and this is the one place in the app where it is: on
+   the markets board green is a number going up, but a grocery price going up
+   is the bad news. The colour follows what it means to you, not the sign. */
+.ld-move--up .ld-move__pct { color: var(--down); }
+.ld-move--down .ld-move__pct { color: var(--up); }

@@ -1,5 +1,5 @@
 /** Every screen the tab bar can reach. */
-export type TabId = 'today' | 'courses' | 'due' | 'markets'
+export type TabId = 'today' | 'courses' | 'due' | 'markets' | 'groceries'
 
 /**
  * How a screen's underlying source is doing.
@@ -273,4 +273,172 @@ export interface Dashboard {
 
   /** When the sources were last read, epoch ms. Null if never. */
   fetchedAt: number | null
+}
+
+/* ── groceries ─────────────────────────────────────────────────────────── */
+
+/**
+ * What a line of a receipt is, coarsely enough that a default lifespan can be
+ * attached to it. Eleven buckets, because a twelfth would mostly be a matter of
+ * taste and every one of them has to mean something to the reader.
+ */
+export type GroceryCategory =
+  | 'produce'
+  | 'dairy'
+  | 'meat'
+  | 'bakery'
+  | 'frozen'
+  | 'pantry'
+  | 'beverages'
+  | 'snacks'
+  | 'household'
+  | 'personal'
+  | 'other'
+
+/**
+ * One line of a receipt, exactly as it was read.
+ *
+ * Nothing here is ever rewritten. A correction is stored beside it (see
+ * `PantryEdits`) so that what the photo said and what you say it said stay
+ * separable — which is the only way a bad read can be spotted later.
+ */
+export interface ReceiptLine {
+  /** Stable across scans: the receipt's id and this line's position in it. */
+  id: string
+  item: string
+  category: GroceryCategory
+  qty: number
+  /** Total paid for the line after any line discount, in dollars. */
+  price: number
+  /** Weeks the reader judged this would last. Null when it would not judge. */
+  estimate: number | null
+}
+
+/** One shop, as read off one photo. */
+export interface Receipt {
+  id: string
+  store: string
+  /** Purchase date, `YYYY-MM-DD`, off the receipt rather than off the file. */
+  date: string
+  /** The printed total. Kept only so a misread line can be caught against it. */
+  total: number | null
+  /** The photo's filename, now under `Receipts/Filed/`. */
+  photo: string
+  /** `pending` until you have checked it; nothing pending counts toward a week. */
+  status: 'pending' | 'kept'
+  lines: ReceiptLine[]
+}
+
+/**
+ * Who decided how long something lasts.
+ *
+ * The screen prints this, because the difference between a number you set and a
+ * number a category default guessed is the difference between a figure you can
+ * act on and one you should correct.
+ */
+export type LifespanSource = 'you' | 'pace' | 'receipt' | 'category'
+
+/** A line once corrections, lifespans and dates have been applied to it. */
+export interface PantryLine {
+  id: string
+  receipt: string
+  store: string
+  date: string
+  /** Local midnight of `date`, epoch ms. */
+  at: number
+  item: string
+  /** Normalised for matching the same thing bought again — `toilet paper`. */
+  key: string
+  category: GroceryCategory
+  qty: number
+  price: number
+  /** How many weeks this purchase covers. */
+  weeks: number
+  weeksSource: LifespanSource
+  /** `price / weeks` — what this purchase adds to every week it covers. */
+  perWeek: number
+}
+
+/** One week of the trend, oldest first. */
+export interface GroceryWeek {
+  /** Local Monday 00:00, epoch ms. */
+  start: number
+  /** `SEP 1`. */
+  label: string
+  /** What the week costs with every purchase spread over how long it lasts. */
+  spread: number
+  /** What actually left the account that week. */
+  cash: number
+  current: boolean
+}
+
+/** One thing you buy, across every time you have bought it. */
+export interface GroceryItem {
+  key: string
+  /** The most recent spelling of it. */
+  item: string
+  category: GroceryCategory
+  /** What keeping it in stock costs per week: last price over its lifespan. */
+  perWeek: number
+  weeks: number
+  weeksSource: LifespanSource
+  /** How many separate shops it has appeared on. */
+  buys: number
+  lastAt: number
+  lastPrice: number
+  /** Its share of the weekly run rate, 0–1. */
+  share: number
+}
+
+/** Something the last purchase of which is about to run out. */
+export interface Restock {
+  key: string
+  item: string
+  category: GroceryCategory
+  /** When the last purchase runs out, epoch ms. */
+  dueAt: number
+  /** Days from now. Negative means you are already out. */
+  days: number
+  lastPrice: number
+  weeks: number
+  weeksSource: LifespanSource
+}
+
+/** A regular purchase whose unit price moved enough to be worth knowing. */
+export interface PriceMove {
+  key: string
+  item: string
+  /** Unit price this time and last time, in dollars. */
+  now: number
+  before: number
+  /** Signed percent — `+12.4`. */
+  percent: number
+  direction: Direction
+  /** When the new price was paid, epoch ms. */
+  at: number
+}
+
+/** Everything the FOOD screen reads. */
+export interface Groceries {
+  /** Every kept line, newest first. */
+  lines: PantryLine[]
+  /** Receipts still waiting to be checked, newest first. */
+  pending: Receipt[]
+  /** What the pending receipts add up to, and so are keeping out of the number. */
+  pendingTotal: number
+  /** This week's run rate — the headline. */
+  perWeek: number
+  /** What actually left the account this week — the second number. */
+  cash: number
+  /** Twelve weeks, oldest first. */
+  weeks: GroceryWeek[]
+  /** The weekly figure being aimed at, in dollars. */
+  target: number
+  /** The median week, so the headline can be read against a normal one. */
+  typical: number
+  items: GroceryItem[]
+  restock: Restock[]
+  moves: PriceMove[]
+  /** When the receipts file was last baked in, epoch ms. Null when never. */
+  scannedAt: number | null
 }

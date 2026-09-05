@@ -20,7 +20,8 @@ design system, and installable to a phone home screen.
            ▲                                   │              public feeds
            │  baked in at deploy time          │              ────────────
      ~/Desktop/Courses  (npm run scan)         └────────────▶ quotes
-                                                              CNBC + CBC RSS
+     ~/Desktop/Receipts (npm run receipts)                     CNBC + CBC RSS
+        read by the local `claude` CLI
 ```
 
 Four things are worth understanding before changing any of it.
@@ -258,6 +259,84 @@ COURSES_DIR=… npm run scan        # somewhere else
 COURSES_PRIVATE=1 npm run scan    # sections and counts, no filenames
 ```
 
+## Groceries
+
+Drop a receipt photo in `~/Desktop/Receipts` and run `npm run receipts`. It is
+read, its line items land in `receipts.tsv` marked `pending`, and the photo moves
+to `Receipts/Filed/` — never deleted, because it is the only record of what a
+price actually was. `--watch` keeps the folder under observation so a photo
+dropped in is read within seconds of arriving.
+
+```bash
+npm run receipts                  # read whatever is waiting, once
+npm run receipts -- --watch       # keep watching the folder
+npm run receipts -- --deploy      # …and publish after each batch
+RECEIPTS_DIR=… npm run receipts
+RECEIPT_MODEL=opus npm run receipts
+```
+
+Reading a receipt shells out to the `claude` CLI already installed and signed in
+on this Mac. That is the whole reason there is no API key here and nothing to pay
+per receipt. A read takes about ten seconds and asks for one thing: the line
+items, as JSON. Nothing else is sent anywhere.
+
+### The number the screen leads with
+
+Not what you spent — what the week *costs*, with every purchase spread across
+however long it lasts. An $18.99 twelve-pack of toilet paper that lasts twelve
+weeks adds $1.58 to this week and to each of the next eleven. Milk lands almost
+entirely in the week it was bought. Cash out is shown underneath, because a $190
+stock-up trip and a $40 milk run tell you nothing on their own — one of them is
+three ordinary weeks and the other is half of one.
+
+### How long something lasts
+
+Four answers, best available winning:
+
+| | Where it comes from |
+| --- | --- |
+| **your number** | typed on the FOOD screen — beats everything |
+| **your pace** | the median gap between your own repurchases, once there are three |
+| **the receipt** | what the reader guessed when it read the photo |
+| **the category** | a default, and the screen says so |
+
+Three purchases, not two: two is one interval, and one interval is a holiday or a
+stock-up rather than a habit. The screen prints which of the four it used on
+every row, so the ones resting on a guess are the ones to correct first.
+
+Correcting one rewrites its history. Nothing derived is ever stored — the weekly
+figure, the trend and the rankings are all recomputed in the browser from the
+raw lines — so setting a lifespan fixes every week that item ever appeared in,
+charts included.
+
+### Checking a receipt
+
+Nothing counts until you have checked it. A receipt read but not yet reviewed
+sits under **ADD** with its total, deliberately outside every figure above it: a
+headline that quietly included an unread photo would be one you had no way of
+knowing was wrong. Open it, fix anything misread, and press KEEP.
+
+Corrections live in this browser's `localStorage`, applied over the reading at
+render time. What the photo said and what you say it said stay separable, which
+is the only way a bad read can be spotted later.
+
+The same corrections can be made on the Mac by editing `receipts.tsv` directly —
+it is a flat tab-separated file with a header explaining every column, for the
+same reason `lectures.tsv` is one. Marking any row of a receipt `kept` keeps the
+whole receipt.
+
+### Also on the screen
+
+Twelve weeks of trend against a target — `$150` by default, `GROCERY_TARGET=180
+npm run scan` to change it. Every item ranked by what it costs per week to keep
+in stock. What is about to run out, which doubles as a shopping list. And any
+regular whose unit price has moved 8% or more since the last time you bought it.
+
+```bash
+npm run scan                      # bakes receipts.tsv into the bundle
+GROCERIES_PRIVATE=1 npm run scan  # prices and categories, no item names
+```
+
 ## What is public and what is not
 
 The Pages repo is public, and that shaped several decisions:
@@ -270,12 +349,21 @@ The Pages repo is public, and that shaped several decisions:
 | Device key | your phone's `localStorage` | no |
 | Worker URL (`VITE_API_BASE`) | the bundle | yes — an address, not a credential |
 | **Course filenames and lecture topics** | the bundle, via `courses.generated.json` | **yes** |
+| **Grocery item names and prices** | the bundle, via `groceries.generated.json` | **yes** |
+| Receipt photos | `~/Desktop/Receipts/Filed/`, on the Mac | no |
 
-That last row is the one to decide about. File *contents* never leave the Mac,
-but the names of everything in your course folders ship in a world-readable
-bundle. `COURSES_PRIVATE=1 npm run scan` records section names and file counts
-only, which the Courses screen renders as a row of section chips instead of a
-file list.
+Those rows are the ones to decide about. File *contents* never leave the Mac, but
+the names of everything in your course folders ship in a world-readable bundle.
+`COURSES_PRIVATE=1 npm run scan` records section names and file counts only,
+which the Courses screen renders as a row of section chips instead of a file
+list.
+
+The grocery row is the same trade and rather more personal: a shopping list says
+more about a person than a folder of lecture slides does. `GROCERIES_PRIVATE=1`
+keeps the prices, the dates and the categories and drops the names, which leaves
+the weekly figure, the trend and the target working and turns the item list into
+categories. The photos themselves are never published — only what was read off
+them.
 
 To rotate anything — the device key, the client secret, the refresh token — run
 `npm run setup` again. It reuses the existing device key unless `.secrets.local`
@@ -291,7 +379,8 @@ npm run lint
 npm run setup    # credentials: Google -> Worker, verified end to end
 npm run doctor   # read-only diagnosis when something breaks
 npm run check    # data-shaping checks, then an SSR render of every tab
-npm run scan     # read ~/Desktop/Courses into the bundle
+npm run receipts # read ~/Desktop/Receipts with the claude CLI
+npm run scan     # read ~/Desktop/Courses and receipts.tsv into the bundle
 npm run deploy   # scan, build, publish to the gh-pages branch
 ```
 
@@ -299,8 +388,10 @@ npm run deploy   # scan, build, publish to the gh-pages branch
 browser in this environment. It covers course-code parsing, the timeline and
 hour allocation, folder-to-calendar matching, section ordering, due-date
 handling (including the timezone trap below), the market board's formatting and
-derived brief, and the 6:45 boundaries; then it renders all four tabs and the
-setup sheet to a string.
+derived brief, the 6:45 boundaries, and the grocery arithmetic — amortising a
+purchase over its lifespan, which of the four answers about lifespan wins, the
+8% price-move threshold, and the receipts file round-tripping; then it renders
+all five tabs and the setup sheet to a string.
 
 ## Deploying
 
@@ -325,8 +416,8 @@ repo's token doesn't carry. To switch to push-to-deploy, run
 ```
 src/
   App.tsx                 tab + completion state, the device frame, the setup sheet
-  components/             StatusBar, TabBar, KeyGate, EmptyState, Spark
-  views/                  one file per tab: Today, Courses, Due, Markets
+  components/             StatusBar, TabBar, KeyGate, EmptyState, Spark, Trend
+  views/                  one file per tab: Today, Courses, Due, Markets, Groceries
   data/
     types.ts              the shapes every view reads
     payload.ts            the wire format between Worker and app
@@ -337,6 +428,9 @@ src/
     useDashboard.ts       fetch, cache, refresh policy, shaping into Dashboard
     courses.ts            the baked Desktop scan
     courses.generated.json    written by `npm run scan` — do not edit
+    groceries.ts          what a week of food costs; pure, and the only place it is worked out
+    pantry.ts             the baked receipts, and this device's corrections to them
+    groceries.generated.json  written by `npm run scan` — do not edit
     completion.ts         ticked-off deadlines, persisted per day
     sources/              raw upstream shapes → the views' shapes
       calendar.ts           course identity, timeline, hour allocation
@@ -361,6 +455,9 @@ scripts/
   lib/setup-lib.mjs       shared by both, including the Google probe
   scan-courses.ts         the Desktop scan
   lib/syllabus.mjs        PDF text → a schedule, and a deck → its outline
+  read-receipts.mjs       receipt photos → receipts.tsv, via the `claude` CLI
+  lib/receipts.mjs        the reader's output, and the receipts file it goes in
+  scan-groceries.ts       receipts.tsv → the bundle
   check.ts                data-shaping checks
   render.tsx              SSR render of every tab
   deploy.sh               scan + build + publish to gh-pages
