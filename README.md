@@ -278,14 +278,34 @@ RECEIPT_MODEL=opus npm run receipts
 Photos straight off an iPhone are fine: `.heic` is converted to something
 readable first, in a scratch directory rather than beside the original, so the
 folder never ends up holding a second copy of a receipt under a second name.
-Subfolders are followed one level, so keeping receipts in `Week 3/` works and
-`Filed/` mirrors whatever arrangement you used. Which week a shop counts toward
-is always taken from the date printed on the receipt, never from the folder or
-the file's timestamp — so a photo taken late, or filed in the wrong place, still
-lands in the right week.
 
-One receipt per photo. A single photo of four receipts spread on a table is read
-as one shop, and the total will be wrong in a way that looks entirely plausible.
+**A folder is one receipt.** A long till roll does not fit in one legible
+photograph, so photograph it in two or three overlapping pieces, put them in a
+folder, and they are read together as a single shop:
+
+```
+~/Desktop/Receipts/
+  IMG_3302.HEIC          one receipt
+  Costco Sep 6/          also one receipt
+    IMG_3310.HEIC          its top
+    IMG_3311.HEIC          its bottom
+```
+
+Photos inside a folder are read in filename order, numerically, so `2` comes
+before `10`. The reader is told they overlap and to list each item once; the
+whole folder moves into `Filed/` intact.
+
+One receipt per photo otherwise. A single photo of four receipts spread on a
+table is read as one shop, and the total will be wrong in a way that looks
+entirely plausible.
+
+Which week a shop counts toward is always taken from the date printed on the
+receipt, never from a folder name or a file's timestamp — so a photo taken late
+still lands in the right week, and there is nothing to gain by sorting receipts
+into folders by week. (An earlier version did treat a subfolder as a grouping
+and read each photo in it separately. Being able to photograph a long receipt in
+pieces is worth more than being able to file them by week, and a folder cannot
+mean both.)
 
 Reading a receipt shells out to the `claude` CLI already installed and signed in
 on this Mac. That is the whole reason there is no API key here and nothing to pay

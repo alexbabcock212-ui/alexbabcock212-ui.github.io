@@ -11,6 +11,11 @@
  * The original is never deleted — a reading can always be checked against it,
  * and a receipt is the only record of a price that ever existed.
  *
+ * A long receipt does not fit in one legible photograph, so a *folder* is also
+ * one receipt: every photo in it is read together, in filename order, as a
+ * single shop. Photograph a long till roll in two or three overlapping pieces,
+ * drop them in a folder, and they arrive as one.
+ *
  * ── on how it is read ───────────────────────────────────────────────────
  * By shelling out to the `claude` CLI that is already installed and already
  * signed in. That is the whole reason this needs no API key and costs nothing
@@ -19,9 +24,18 @@
  * except as that one request.
  */
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, renameSync, statSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+} from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
-import { basename, dirname, extname, join, resolve } from 'node:path'
+import { basename, extname, join, resolve } from 'node:path'
 import {
   mergeReceipts,
   parseReaderOutput,
@@ -45,12 +59,10 @@ const WATCH = process.argv.includes('--watch')
 const DEPLOY = process.argv.includes('--deploy')
 
 const PHOTOS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf', '.heic', '.heif'])
-/** Read cannot open an iPhone's native format; `sips` converts it in place. */
+/** Read cannot open an iPhone's native format; `sips` converts it. */
 const NEEDS_CONVERTING = new Set(['.heic', '.heif'])
 
-const PROMPT = `Read the receipt in the image at PATH and return ONLY a JSON object. No prose, no code fence.
-
-{"store":string,"date":"YYYY-MM-DD","total":number|null,"currency":string,
+const RULES = `{"store":string,"date":"YYYY-MM-DD","total":number|null,"currency":string,
  "lines":[{"item":string,"category":string,"qty":number,"price":number,"lifespanWeeks":number|null}]}
 
 Rules:
@@ -65,17 +77,38 @@ Rules:
 - Name each item as it is printed, but in ordinary capitalisation and with
   obvious abbreviations expanded: "MLK 2% 4L" is "Milk 2% 4L". The photo is
   kept, so the exact printing is never lost; this list is read by a person.
-- If the image is not a receipt, return {"lines":[]}.`
+- If this is not a receipt, return {"lines":[]}.`
+
+/**
+ * What to ask, for one photo or for several of the same receipt.
+ *
+ * The multi-photo wording carries the only two things that can go wrong when a
+ * till roll is photographed in pieces: reading them out of order, and counting
+ * the overlap twice. Both produce a total that looks entirely plausible.
+ */
+const promptFor = (paths) =>
+  paths.length === 1
+    ? `Read the receipt in the image ${basename(paths[0])} and return ONLY a JSON object. No prose, no code fence.
+
+${RULES}`
+    : `The ${paths.length} images ${paths.map((p) => basename(p)).join(', ')} are overlapping
+photographs of ONE receipt, in order from its top to its bottom. Read them as a
+single receipt and return ONLY a JSON object. No prose, no code fence.
+
+${RULES}
+- Where two images overlap, list each item once. Do not repeat a line because it
+  appears at the bottom of one photo and the top of the next.
+- The store and date will be on the first image, the total usually on the last.`
 
 /* ── running the reader ────────────────────────────────────────────────── */
 
-function runClaude(path) {
+function runClaude(paths, cwd) {
   return new Promise((done) => {
     const child = spawn(
       'claude',
       [
         '-p',
-        PROMPT.replace('PATH', path),
+        promptFor(paths),
         '--allowedTools',
         'Read',
         '--output-format',
@@ -83,11 +116,10 @@ function runClaude(path) {
         '--model',
         MODEL,
       ],
-      // Run inside whichever folder the file is actually in, so the reader may
-      // open that one and nothing else — for a converted iPhone photo that is
-      // the scratch directory, not the receipts folder. stdin is closed: with a
-      // pipe it waits for input that is never coming.
-      { cwd: dirname(path), stdio: ['ignore', 'pipe', 'pipe'] },
+      // Run inside the scratch directory holding this receipt's photos, so the
+      // reader may open those and nothing else. stdin is closed: with a pipe it
+      // waits for input that is never coming.
+      { cwd, stdio: ['ignore', 'pipe', 'pipe'] },
     )
 
     let out = ''
@@ -131,72 +163,107 @@ function runClaude(path) {
 
 /* ── the folder ────────────────────────────────────────────────────────── */
 
+const byName = (a, b) => a.localeCompare(b, undefined, { numeric: true })
+
+const photosIn = (dir) => {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isFile() && !d.name.startsWith('.'))
+      .filter((d) => PHOTOS.has(extname(d.name).toLowerCase()))
+      .map((d) => d.name)
+      .sort(byName)
+  } catch {
+    return []
+  }
+}
+
 /**
- * Every photo waiting to be read, named relative to the receipts folder.
+ * Everything waiting to be read, one job per receipt.
  *
- * Subfolders are followed one level, so receipts kept in `Week 3/` are read
- * like any other — a folder of photos sitting there doing nothing is a far
- * worse answer than reading them. Which week a shop belongs to is still taken
- * from the date printed on the receipt, never from the folder it is in: a photo
- * filed in the wrong place still lands in the right week.
+ * A loose photo is a receipt. A folder is *also* a receipt — all of it, in
+ * filename order. Numeric-aware sorting, so `2` comes before `10` rather than
+ * after it, which is the difference between a receipt read top to bottom and
+ * one read in an order nobody intended.
  */
-const waiting = (dir = ROOT, prefix = '') => {
+const waiting = () => {
   let entries
   try {
-    entries = readdirSync(dir, { withFileTypes: true })
+    entries = readdirSync(ROOT, { withFileTypes: true })
   } catch {
     return []
   }
 
-  const out = []
-  for (const entry of entries) {
+  const jobs = []
+  for (const entry of [...entries].sort((a, b) => byName(a.name, b.name))) {
     if (entry.name.startsWith('.')) continue
-    const name = prefix ? `${prefix}/${entry.name}` : entry.name
 
     if (entry.isDirectory()) {
-      // Filed/ is where read photos go; walking back into it would offer every
+      // Filed/ is where read photos go; walking into it would offer every
       // receipt ever read a second time.
-      if (prefix || join(dir, entry.name) === FILED) continue
-      out.push(...waiting(join(dir, entry.name), name))
+      if (join(ROOT, entry.name) === FILED) continue
+      const parts = photosIn(join(ROOT, entry.name)).map((p) => `${entry.name}/${p}`)
+      if (parts.length > 0) jobs.push({ name: entry.name, parts })
       continue
     }
 
-    if (entry.isFile() && PHOTOS.has(extname(entry.name).toLowerCase())) out.push(name)
+    if (entry.isFile() && PHOTOS.has(extname(entry.name).toLowerCase())) {
+      jobs.push({ name: entry.name, parts: [entry.name] })
+    }
   }
 
-  return out.sort()
+  return jobs
 }
 
 /**
- * Convert what Read cannot open, leaving the original untouched.
+ * This receipt's photos as files the reader can open, in one scratch directory.
  *
- * The conversion goes to a scratch directory rather than next to the photo. A
- * `.jpg` written beside `IMG_0421.heic` is a file this folder has never seen
- * before: the original gets filed, the copy stays behind, and the next pass
- * reads it as a second shop. The photo-name check that stops a re-read cannot
- * catch it, because the two names genuinely differ — so that week's groceries
- * would quietly double.
+ * Everything is copied or converted out of the watched folder rather than being
+ * read where it lies. A converted copy written beside the original is a file
+ * this tool has never seen before: the original gets filed, the copy stays
+ * behind, and the next pass reads it as a second shop — which the check against
+ * re-reading cannot catch, because the two names genuinely differ.
+ *
+ * Numbered on the way in, so the order they are named in the prompt is the
+ * order they were taken in.
  */
-function readable(name) {
-  const path = join(ROOT, name)
-  if (!NEEDS_CONVERTING.has(extname(name).toLowerCase())) return path
+function prepare(parts) {
+  const dir = mkdtempSync(join(tmpdir(), 'receipt-'))
+  const paths = []
 
-  const jpeg = join(tmpdir(), `receipt-${process.pid}-${basename(name).replace(/\.[^.]+$/, '')}.jpg`)
-  const sips = spawnSync('sips', ['-s', 'format', 'jpeg', path, '--out', jpeg])
-  return sips.status === 0 && existsSync(jpeg) ? jpeg : null
+  for (const part of parts) {
+    const from = join(ROOT, part)
+    const ext = extname(part).toLowerCase()
+    const converting = NEEDS_CONVERTING.has(ext)
+    const to = join(dir, `${String(paths.length + 1).padStart(2, '0')}${converting ? '.jpg' : ext}`)
+
+    if (converting) {
+      const sips = spawnSync('sips', ['-s', 'format', 'jpeg', from, '--out', to])
+      if (sips.status !== 0 || !existsSync(to)) continue
+    } else {
+      try {
+        copyFileSync(from, to)
+      } catch {
+        continue
+      }
+    }
+
+    paths.push(to)
+  }
+
+  return { dir, paths }
 }
 
-/** Move a photo into Filed/, never over the top of one already there. */
+/** Move a photo or a whole folder into Filed/, never over one already there. */
 function file(name) {
   let target = join(FILED, name)
-  // A photo from `Week 3/` is filed under `Filed/Week 3/`, so however the
-  // folder was arranged going in, it is still arranged coming out.
-  mkdirSync(dirname(target), { recursive: true })
+  mkdirSync(FILED, { recursive: true })
+
   if (existsSync(target)) {
-    const stem = name.replace(/\.[^.]+$/, '')
+    const stem = basename(name, extname(name))
     const ext = extname(name)
     for (let n = 2; existsSync(target); n++) target = join(FILED, `${stem}-${n}${ext}`)
   }
+
   try {
     renameSync(join(ROOT, name), target)
   } catch {
@@ -205,50 +272,56 @@ function file(name) {
 }
 
 /** The photo's own date, for a receipt whose printed one could not be read. */
-function takenOn(name) {
+function takenOn(part) {
   try {
-    const d = new Date(statSync(join(ROOT, name)).mtimeMs)
+    const d = new Date(statSync(join(ROOT, part)).mtimeMs)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   } catch {
     return null
   }
 }
 
-async function readAll(names) {
+async function readAll(jobs) {
   let receipts = readReceiptsFile(STORE)
   const filed = new Set(receipts.map((r) => r.photo))
   let added = 0
 
-  for (const name of names) {
-    if (filed.has(name)) {
-      console.log(`skip  ${name}  (already read)`)
-      file(name)
+  for (const job of jobs) {
+    const label = job.parts.length > 1 ? `${job.name}/ (${job.parts.length} photos)` : job.name
+
+    if (filed.has(job.name)) {
+      console.log(`skip  ${label}  (already read)`)
+      file(job.name)
       continue
     }
 
-    process.stdout.write(`read  ${name} … `)
+    process.stdout.write(`read  ${label} … `)
 
-    const path = readable(name)
-    if (!path) {
-      console.log('could not be converted')
+    const { dir, paths } = prepare(job.parts)
+    if (paths.length === 0) {
+      console.log('could not be opened')
+      rmSync(dir, { recursive: true, force: true })
       continue
     }
 
-    const result = await runClaude(path)
+    const result = await runClaude(paths, dir)
+    rmSync(dir, { recursive: true, force: true })
+
     if (!result.ok) {
       console.log(result.why)
       continue
     }
 
     const taken = new Set(receipts.map((r) => r.id))
-    const date = result.raw?.date ?? takenOn(name)
+    const fallback = takenOn(job.parts[0])
+    const date = result.raw?.date ?? fallback
     const id = receiptId(
       String(date ?? '').slice(0, 10) || 'undated',
       result.raw?.store ?? 'shop',
       taken,
     )
 
-    const receipt = toReceipt(result.raw, { id, photo: name, fallbackDate: takenOn(name) })
+    const receipt = toReceipt(result.raw, { id, photo: job.name, fallbackDate: fallback })
     if (!receipt) {
       console.log('nothing on it that looks like groceries')
       continue
@@ -263,10 +336,10 @@ async function readAll(names) {
       `${receipt.store}, ${receipt.date} — ${receipt.lines.length} lines, $${sum.toFixed(2)}`,
     )
 
-    // The receipt is in the file before the photo moves, so a crash between the
+    // The receipt is in the file before the photos move, so a crash between the
     // two costs a re-read rather than the only copy of a shop.
     writeReceiptsFile(STORE, receipts)
-    file(name)
+    file(job.name)
   }
 
   return added
@@ -279,10 +352,10 @@ for (const dir of [ROOT, FILED]) {
 }
 
 async function pass() {
-  const names = waiting()
-  if (names.length === 0) return 0
+  const jobs = waiting()
+  if (jobs.length === 0) return 0
 
-  const added = await readAll(names)
+  const added = await readAll(jobs)
   if (added === 0) return 0
 
   const total = readReceiptsFile(STORE).length
@@ -310,8 +383,10 @@ if (WATCH) {
   let running = false
 
   const nudge = () => {
-    // Copying a photo in fires several events, and a large one arrives in
-    // pieces; wait for the folder to go quiet before reading anything.
+    // Copying photos in fires several events, and a large one arrives in
+    // pieces; wait for the folder to go quiet before reading anything. A folder
+    // of photos being dragged in needs this most — half a receipt is worse than
+    // none.
     clearTimeout(timer)
     timer = setTimeout(async () => {
       if (running) return
@@ -321,11 +396,11 @@ if (WATCH) {
       } finally {
         running = false
       }
-    }, 1500)
+    }, 2500)
   }
 
   const { watch } = await import('node:fs')
-  watch(ROOT, nudge)
+  watch(ROOT, { recursive: true }, nudge)
   // fs.watch misses things over some network and synced volumes; a slow poll
   // costs nothing and means a photo is never simply forgotten.
   setInterval(nudge, 30_000)
