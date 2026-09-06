@@ -537,6 +537,16 @@ removes the chore for nothing.
 Point the sideloader at the `ios-latest` release asset and it will pick up new
 builds from the same URL.
 
+**Which sideloader.** Use [iloader](https://iloader.app) to get SideStore onto
+the phone, then install this `.ipa` from inside SideStore. Not AltServer: on
+macOS 27 it dies with `could not retrieve anisette data value "machineID"`,
+because the private `AOSKit` call it uses to authenticate returns `-45070` and
+an empty dictionary. That is [an open upstream
+bug](https://github.com/altstoreio/AltStore/issues/1751) with no fix, and
+SideServer-macOS inherits it — same lineage, last released March 2023. iloader
+sidesteps it by construction: its only anisette provider is a remote v3 server
+(`isideload/src/anisette/remote_v3`), so it never calls `AOSKit` at all.
+
 Three things about the native build differ from the website, and all three are
 load-bearing:
 

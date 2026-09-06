@@ -37,6 +37,10 @@ import type { CalendarEvent } from '../src/data/sources/calendar'
 import { sortSections, toCourses } from '../src/data/sources/courses'
 import { daysUntil, localDate, toDeadlines, whenLabel } from '../src/data/sources/tasks'
 import { agoLabel, normalise, toBrief, toGroups } from '../src/data/sources/markets'
+import { writeFileSync, unlinkSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { deflateRawSync } from 'node:zlib'
 import { loadCachedPayload } from '../src/data/cache'
 import { isStale, lastMorning, nextMorning } from '../src/data/morning'
 import { currentWeek, topicForWeek } from '../src/data/sources/term'
@@ -45,6 +49,7 @@ import { freshness } from '../src/data/dashboard'
 import {
   deckScore,
   outlineDeck,
+  extractText,
   findAssessments,
   findSchedule,
   mergeLectures,
@@ -407,6 +412,72 @@ eq('midterms and breaks are collected', dated.map((a: { label: string }) => a.la
 ])
 eq('with their dates', dated[0].dates, 'Oct 06')
 eq('and the chapter column stripped', dated[0].label, 'Midterm 1')
+
+console.log('— reading an inline syllabus —')
+// The other shape a schedule comes in: no table, one line per week, the date
+// inside the line. Every clause here is a real line from a real syllabus.
+const INLINE = [
+  'Week #1: 10 September: The Long Path to War, 1896 to 1911',
+  'Week#3: 24 September: War at Home and Abroad, 1914-1916',
+  'Week#7: 22 October: Midterm Exam',
+].join('\n')
+
+const inline = findSchedule(INLINE)
+eq('a hash between week and number', inline.map((l: { week: number }) => l.week), [1, 3, 7])
+eq('a day-first date is a date', inline[0].dates, '10 September')
+eq('and is not left in the topic', inline[0].topic, 'The Long Path to War, 1896 to 1911')
+eq('a trailing year is not a chapter', inline[1].topic, 'War at Home and Abroad, 1914-1916')
+eq('an exam is found without a table', findAssessments(INLINE), [
+  { label: 'Midterm Exam', dates: '22 October' },
+])
+
+console.log('— reading a .docx —')
+// A syllabus is as likely to be a Word file as a PDF, and the reader for one
+// is thirty lines of zip offsets, so it is built here and read back whole.
+const docx = (xml: string) => {
+  const name = Buffer.from('word/document.xml')
+  const body = deflateRawSync(Buffer.from(xml, 'utf8'))
+  const local = Buffer.alloc(30)
+  local.writeUInt32LE(0x04034b50, 0)
+  local.writeUInt16LE(20, 4)
+  local.writeUInt16LE(8, 8)
+  local.writeUInt32LE(body.length, 18)
+  local.writeUInt32LE(xml.length, 22)
+  local.writeUInt16LE(name.length, 26)
+
+  const central = Buffer.alloc(46)
+  central.writeUInt32LE(0x02014b50, 0)
+  central.writeUInt16LE(20, 6)
+  central.writeUInt16LE(8, 10)
+  central.writeUInt32LE(body.length, 20)
+  central.writeUInt32LE(xml.length, 24)
+  central.writeUInt16LE(name.length, 28)
+
+  const cdOffset = local.length + name.length + body.length
+  const end = Buffer.alloc(22)
+  end.writeUInt32LE(0x06054b50, 0)
+  end.writeUInt16LE(1, 8)
+  end.writeUInt16LE(1, 10)
+  end.writeUInt32LE(central.length + name.length, 12)
+  end.writeUInt32LE(cdOffset, 16)
+
+  const file = join(tmpdir(), `check-${Date.now()}.docx`)
+  writeFileSync(file, Buffer.concat([local, name, body, central, name, end]))
+  return file
+}
+
+const wordFile = docx(
+  '<w:document><w:body>' +
+    '<w:p><w:r><w:t>Week #1: 10 September: Empire &amp; War</w:t></w:r></w:p>' +
+    '<w:p><w:r><w:t>Week#2: 17 September: The Home Front</w:t></w:r></w:p>' +
+    '</w:body></w:document>',
+)
+const wordText = (await extractText(wordFile)) as string
+unlinkSync(wordFile)
+
+eq('paragraphs become lines', wordText.split('\n').length, 2)
+eq('entities are decoded', wordText.includes('Empire & War'), true)
+eq('and the schedule reads out of it', findSchedule(wordText).length, 2)
 
 console.log('— reading a lecture deck —')
 // One page per slide, which is the whole point: in a deck the page is the

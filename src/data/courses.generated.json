@@ -1,5 +1,5 @@
 {
-  "scannedAt": 1787874841509,
+  "scannedAt": 1788477341357,
   "root": "~/Desktop/Courses",
   "redacted": false,
   "term": {
@@ -11,13 +11,14 @@
       "code": "Classics 2440",
       "folder": "Classics 2440",
       "sections": [
+        "Syllabus",
         "Week 1",
         "Week 2"
       ],
       "materials": [
         {
           "name": "CS 2440A 650 Course Outline and Syllabus Sept 2.pdf",
-          "section": "",
+          "section": "Syllabus",
           "kind": "pdf",
           "modified": 1787799312141
         },
@@ -300,13 +301,151 @@
     {
       "code": "History 2121",
       "folder": "History 2121",
-      "sections": [],
-      "materials": [],
-      "fileCount": 0,
-      "updated": null,
-      "lectures": [],
-      "lecturesSource": "none",
-      "assessments": []
+      "sections": [
+        "Syllabus"
+      ],
+      "materials": [
+        {
+          "name": "Bothwell, English, Drummon, Canada 1900-1945 - Copy.pdf",
+          "section": "",
+          "kind": "pdf",
+          "modified": 1788475992279
+        },
+        {
+          "name": "2121A Syllabus 2026 - Copy.docx",
+          "section": "Syllabus",
+          "kind": "doc",
+          "modified": 1788473767189
+        }
+      ],
+      "fileCount": 2,
+      "updated": 1788475992279,
+      "lectures": [
+        {
+          "week": 1,
+          "topic": "The Long Path to War, 1896 to 1911",
+          "readings": "",
+          "detail": "",
+          "dates": "10 September",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 2,
+          "topic": "The Imperial Question, 1896-1914",
+          "readings": "",
+          "detail": "",
+          "dates": "17 September",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 3,
+          "topic": "War at Home and Abroad, 1914-1916",
+          "readings": "",
+          "detail": "",
+          "dates": "24 September",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 4,
+          "topic": "1917: The Year that Changed Everything",
+          "readings": "",
+          "detail": "",
+          "dates": "1 October",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 5,
+          "topic": "The War to End All Wars, 1918-1919",
+          "readings": "",
+          "detail": "",
+          "dates": "8 October",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 6,
+          "topic": "Reading Week",
+          "readings": "",
+          "detail": "",
+          "dates": "15 October",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 7,
+          "topic": "Midterm Exam",
+          "readings": "",
+          "detail": "",
+          "dates": "22 October",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 8,
+          "topic": "Postwar Disillusionment: The “Roaring Twenties”",
+          "readings": "",
+          "detail": "",
+          "dates": "29 October",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 9,
+          "topic": "The Rise of Totalitarianism: The “Dirty Thirties”",
+          "readings": "",
+          "detail": "",
+          "dates": "5 November",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 10,
+          "topic": "The Phoney War and Limited Liability, 1939-41",
+          "readings": "",
+          "detail": "",
+          "dates": "12 November",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 11,
+          "topic": "The Phoney War and Limited Liability, 1939-41",
+          "readings": "",
+          "detail": "",
+          "dates": "19 November",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 12,
+          "topic": "Turning the Tide, 1942-1945",
+          "readings": "",
+          "detail": "",
+          "dates": "26 November",
+          "decks": [],
+          "detailSource": "none"
+        },
+        {
+          "week": 13,
+          "topic": "The “Good War” and a New World Order, 1945-1949",
+          "readings": "",
+          "detail": "",
+          "dates": "3 December",
+          "decks": [],
+          "detailSource": "none"
+        }
+      ],
+      "lecturesSource": "file",
+      "assessments": [
+        {
+          "label": "Midterm Exam",
+          "dates": "22 October"
+        }
+      ]
     },
     {
       "code": "Mos 2310",

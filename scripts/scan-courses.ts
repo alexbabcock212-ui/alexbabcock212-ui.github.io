@@ -287,12 +287,15 @@ async function scanLectures(
   let assessments: Assessment[] = []
   let firstDate: { month: string; day: number } | null = null
 
-  const pdfs = materials
-    .filter((m) => m.kind === 'pdf')
+  // Not just PDFs: `extractText` also reads `.docx`, and this term's History
+  // outline is one. Filtering on `kind === 'pdf'` here was why that course
+  // reported "no syllabus" while its syllabus sat in the folder.
+  const candidates = materials
+    .filter((m) => m.kind === 'pdf' || /\.docx$/i.test(m.name))
     .sort((a, b) => Number(OUTLINE_RE.test(b.name)) - Number(OUTLINE_RE.test(a.name)))
 
-  for (const pdf of pdfs) {
-    const text = await textOf(join(dir, pdf.section, pdf.name))
+  for (const candidate of candidates) {
+    const text = await textOf(join(dir, candidate.section, candidate.name))
     if (!text) continue
     const found = findSchedule(text) as Lecture[]
     if (found.length >= 3) {

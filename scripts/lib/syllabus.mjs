@@ -16,8 +16,20 @@
  * bad parse is a one-time correction that never regresses.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { inflateRawSync } from 'node:zlib'
 
 /* ── extraction ────────────────────────────────────────────────────────── */
+
+/**
+ * Text from an outline, whatever it was written in.
+ *
+ * Syllabi arrive as both PDFs and Word files — this term's History outline is a
+ * `.docx` — and a course whose schedule cannot be read shows up on the screen
+ * as "no syllabus", which is indistinguishable from not having handed one in.
+ */
+export async function extractText(path) {
+  return /\.docx$/i.test(path) ? extractDocx(path) : extractPdf(path)
+}
 
 /**
  * Text from a PDF.
@@ -26,12 +38,99 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs'
  * content streams ignores the font's ToUnicode map, which on a real syllabus
  * turned "PRINCIPLES" into "P R I ! C I P LES".
  */
-export async function extractText(path) {
+async function extractPdf(path) {
   const { extractText: extract, getDocumentProxy } = await import('unpdf')
   const { readFile } = await import('node:fs/promises')
   const pdf = await getDocumentProxy(new Uint8Array(await readFile(path)))
   const { text } = await extract(pdf, { mergePages: true })
   return text
+}
+
+/**
+ * One member of a zip archive, by exact name.
+ *
+ * A `.docx` is a zip, and the only part worth reading is `word/document.xml`.
+ * Thirty lines of the zip format is cheaper than a dependency for one file,
+ * and unlike shelling out to `unzip` it cannot fail on a machine that has no
+ * `unzip` on its PATH.
+ */
+function unzipEntry(buf, want) {
+  // The central directory is found from the end-of-central-directory record,
+  // which sits at the end of the file behind a comment of unknown length.
+  let eocd = -1
+  for (let i = buf.length - 22; i >= 0 && i > buf.length - 65558; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) {
+      eocd = i
+      break
+    }
+  }
+  if (eocd === -1) return null
+
+  let at = buf.readUInt32LE(eocd + 16)
+  const count = buf.readUInt16LE(eocd + 10)
+
+  for (let i = 0; i < count; i++) {
+    if (buf.readUInt32LE(at) !== 0x02014b50) return null
+    const method = buf.readUInt16LE(at + 10)
+    const compressed = buf.readUInt32LE(at + 20)
+    const nameLen = buf.readUInt16LE(at + 28)
+    const extraLen = buf.readUInt16LE(at + 30)
+    const commentLen = buf.readUInt16LE(at + 32)
+    const localAt = buf.readUInt32LE(at + 42)
+    const name = buf.toString('utf8', at + 46, at + 46 + nameLen)
+
+    if (name === want) {
+      // The local header repeats the name and extra fields at its own lengths,
+      // which are not always the central directory's — the data starts after
+      // whatever *it* declares.
+      const lNameLen = buf.readUInt16LE(localAt + 26)
+      const lExtraLen = buf.readUInt16LE(localAt + 28)
+      const from = localAt + 30 + lNameLen + lExtraLen
+      const raw = buf.subarray(from, from + compressed)
+      return method === 0 ? raw : inflateRawSync(raw)
+    }
+
+    at += 46 + nameLen + extraLen + commentLen
+  }
+  return null
+}
+
+const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
+
+/**
+ * Text from a Word file.
+ *
+ * WordprocessingML carries no line breaks of its own — the structure *is* the
+ * markup — so the tags that end a block have to become the whitespace a reader
+ * would see. Paragraphs and table rows end a line; tabs and table cells
+ * separate columns, which is what `splitRow` reads a schedule out of.
+ */
+function extractDocx(path) {
+  const xml = unzipEntry(readFileSync(path), 'word/document.xml')
+  if (!xml) return ''
+
+  const text = xml
+    .toString('utf8')
+    .replace(/<w:tab\b[^>]*\/?>/g, '\t')
+    .replace(/<w:br\b[^>]*\/?>/g, '\n')
+    .replace(/<\/w:p>/g, '\n')
+    .replace(/<\/w:tc>/g, '\t')
+    .replace(/<\/w:tr>/g, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&(amp|lt|gt|quot|apos);/g, (_, e) => XML_ENTITIES[e])
+
+  return (
+    text
+      // A cell's own paragraph break lands just before the cell separator;
+      // without this every table row arrives pre-split into single columns.
+      .replace(/\n+\t/g, '\t')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/ ?\n ?/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  )
 }
 
 /**
@@ -54,16 +153,28 @@ export async function extractPages(path) {
 
 const MONTH = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?'
 
-/** `Sep 10 and 12`, `Oct 14 to Oct 18`, `Sept. 3` — the whole date column. */
+/**
+ * `Sep 10 and 12`, `Oct 14 to Oct 18`, `Sept. 3` — the whole date column.
+ *
+ * Both orders: a table writes `Sept 10`, but prose routinely writes
+ * `10 September`, and reading only the first leaves the date sitting at the
+ * front of the topic where it is read as part of the title.
+ */
 const DATES = new RegExp(
-  `^\\s*(${MONTH}\\s*\\d{1,2}` +
+  `^\\s*((?:${MONTH}\\s*\\d{1,2}|\\d{1,2}\\s*${MONTH})` +
     `(?:\\s*(?:and|to|&|-|–|—|,)\\s*(?:${MONTH}\\s*)?\\d{1,2})*)\\s*`,
   'i',
 )
 
-/** A trailing chapter/reading column: bare numbers, ranges, dashes. */
+/**
+ * A trailing chapter/reading column: bare numbers, ranges, dashes.
+ *
+ * Three digits at most, because a chapter number is never four and a year
+ * always is — unbounded, this read the tail of "The Long Path to War, 1896 to
+ * 1911" as a reading and published the topic with its date range torn off.
+ */
 const TRAILING_REFS =
-  /[\s,;]+((?:ch(?:apter)?s?\.?\s*)?[\d]+(?:\s*[-–—]\s*[\d]+)?(?:\s*,\s*[\d]+(?:\s*[-–—]\s*[\d]+)?)*)\s*$/i
+  /[\s,;]+((?:ch(?:apter)?s?\.?\s*)?\d{1,3}(?:\s*[-–—]\s*\d{1,3})?(?:\s*,\s*\d{1,3}(?:\s*[-–—]\s*\d{1,3})?)*)\s*$/i
 
 /** A cell that is only punctuation — an em-dash placeholder for "none". */
 const EMPTY_ISH = /^[\s—–\-.·|]*$/
@@ -139,16 +250,24 @@ function parseTable(lines) {
   return out
 }
 
-/** Inline form: `Week 3: Consumer choice`, `Week 3 — Consumer choice`. */
+/**
+ * Inline form: `Week 3: Consumer choice`, `Week 3 — Consumer choice`.
+ *
+ * The `#` is optional and so is the space around it: one real syllabus writes
+ * `Week #1:` for its first two weeks and `Week#3:` for every week after.
+ */
 function parseInline(text) {
   const out = []
-  const re = /\bweek\s*(\d{1,2})\s*[:–—\-.)]\s*([^\n]{3,90})/gi
+  const re = /\bweek\s*#?\s*(\d{1,2})\s*[:–—\-.)]\s*([^\n]{3,90})/gi
   let m
   while ((m = re.exec(text)) !== null) {
     const week = Number(m[1])
-    const { readings, label } = splitRow(m[2])
+    const { dates, readings, label } = splitRow(m[2])
     if (!label || out.some((l) => l.week === week)) continue
-    out.push({ week, topic: label, dates: '', readings })
+    // The date was being parsed and then dropped on the floor here. An inline
+    // schedule routinely carries one — `Week #1: 10 September: …` — and it is
+    // what lines the row up with today.
+    out.push({ week, topic: label, dates, readings })
   }
   return out
 }
@@ -171,7 +290,7 @@ export function findSchedule(text) {
 export function findAssessments(text) {
   const lines = text.split(/\r?\n/)
   const header = headerIndex(lines)
-  if (header === -1) return []
+  if (header === -1) return fromInline(text)
 
   const out = []
   let misses = 0
@@ -196,6 +315,23 @@ export function findAssessments(text) {
   }
 
   return out
+}
+
+/** Rows that are an assessment rather than a lecture. */
+const EXAM = /\b(mid-?terms?|finals?|exams?|tests?|quiz(?:zes)?|essays?|papers?)\b/i
+
+/**
+ * The same rows, out of an inline schedule.
+ *
+ * A table keeps its exams on their own unnumbered rows, which is what the loop
+ * above reads. An inline syllabus has no such row — the midterm *is* week 7 —
+ * so the only place to find it is the schedule itself. Dateless matches are
+ * dropped rather than guessed at: "Final Exam= 60%" says nothing about when.
+ */
+function fromInline(text) {
+  return parseInline(text)
+    .filter((l) => l.dates && EXAM.test(l.topic))
+    .map((l) => ({ label: l.topic, dates: l.dates }))
 }
 
 /** The first date in the table, for guessing a term start. */
