@@ -20,8 +20,8 @@
  */
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, renameSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { extname, join, resolve } from 'node:path'
+import { homedir, tmpdir } from 'node:os'
+import { basename, dirname, extname, join, resolve } from 'node:path'
 import {
   mergeReceipts,
   parseReaderOutput,
@@ -83,10 +83,11 @@ function runClaude(path) {
         '--model',
         MODEL,
       ],
-      // Run inside the receipts folder so the reader may open what is in it,
-      // and nothing else. stdin is closed: with a pipe it waits for input that
-      // is never coming.
-      { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
+      // Run inside whichever folder the file is actually in, so the reader may
+      // open that one and nothing else — for a converted iPhone photo that is
+      // the scratch directory, not the receipts folder. stdin is closed: with a
+      // pipe it waits for input that is never coming.
+      { cwd: dirname(path), stdio: ['ignore', 'pipe', 'pipe'] },
     )
 
     let out = ''
@@ -130,24 +131,57 @@ function runClaude(path) {
 
 /* ── the folder ────────────────────────────────────────────────────────── */
 
-const waiting = () => {
+/**
+ * Every photo waiting to be read, named relative to the receipts folder.
+ *
+ * Subfolders are followed one level, so receipts kept in `Week 3/` are read
+ * like any other — a folder of photos sitting there doing nothing is a far
+ * worse answer than reading them. Which week a shop belongs to is still taken
+ * from the date printed on the receipt, never from the folder it is in: a photo
+ * filed in the wrong place still lands in the right week.
+ */
+const waiting = (dir = ROOT, prefix = '') => {
+  let entries
   try {
-    return readdirSync(ROOT, { withFileTypes: true })
-      .filter((d) => d.isFile() && !d.name.startsWith('.'))
-      .filter((d) => PHOTOS.has(extname(d.name).toLowerCase()))
-      .map((d) => d.name)
-      .sort()
+    entries = readdirSync(dir, { withFileTypes: true })
   } catch {
     return []
   }
+
+  const out = []
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue
+    const name = prefix ? `${prefix}/${entry.name}` : entry.name
+
+    if (entry.isDirectory()) {
+      // Filed/ is where read photos go; walking back into it would offer every
+      // receipt ever read a second time.
+      if (prefix || join(dir, entry.name) === FILED) continue
+      out.push(...waiting(join(dir, entry.name), name))
+      continue
+    }
+
+    if (entry.isFile() && PHOTOS.has(extname(entry.name).toLowerCase())) out.push(name)
+  }
+
+  return out.sort()
 }
 
-/** Convert what Read cannot open, keeping the original beside it. */
+/**
+ * Convert what Read cannot open, leaving the original untouched.
+ *
+ * The conversion goes to a scratch directory rather than next to the photo. A
+ * `.jpg` written beside `IMG_0421.heic` is a file this folder has never seen
+ * before: the original gets filed, the copy stays behind, and the next pass
+ * reads it as a second shop. The photo-name check that stops a re-read cannot
+ * catch it, because the two names genuinely differ — so that week's groceries
+ * would quietly double.
+ */
 function readable(name) {
   const path = join(ROOT, name)
   if (!NEEDS_CONVERTING.has(extname(name).toLowerCase())) return path
 
-  const jpeg = path.replace(/\.[^.]+$/, '.jpg')
+  const jpeg = join(tmpdir(), `receipt-${process.pid}-${basename(name).replace(/\.[^.]+$/, '')}.jpg`)
   const sips = spawnSync('sips', ['-s', 'format', 'jpeg', path, '--out', jpeg])
   return sips.status === 0 && existsSync(jpeg) ? jpeg : null
 }
@@ -155,6 +189,9 @@ function readable(name) {
 /** Move a photo into Filed/, never over the top of one already there. */
 function file(name) {
   let target = join(FILED, name)
+  // A photo from `Week 3/` is filed under `Filed/Week 3/`, so however the
+  // folder was arranged going in, it is still arranged coming out.
+  mkdirSync(dirname(target), { recursive: true })
   if (existsSync(target)) {
     const stem = name.replace(/\.[^.]+$/, '')
     const ext = extname(name)

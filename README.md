@@ -275,6 +275,18 @@ RECEIPTS_DIR=… npm run receipts
 RECEIPT_MODEL=opus npm run receipts
 ```
 
+Photos straight off an iPhone are fine: `.heic` is converted to something
+readable first, in a scratch directory rather than beside the original, so the
+folder never ends up holding a second copy of a receipt under a second name.
+Subfolders are followed one level, so keeping receipts in `Week 3/` works and
+`Filed/` mirrors whatever arrangement you used. Which week a shop counts toward
+is always taken from the date printed on the receipt, never from the folder or
+the file's timestamp — so a photo taken late, or filed in the wrong place, still
+lands in the right week.
+
+One receipt per photo. A single photo of four receipts spread on a table is read
+as one shop, and the total will be wrong in a way that looks entirely plausible.
+
 Reading a receipt shells out to the `claude` CLI already installed and signed in
 on this Mac. That is the whole reason there is no API key here and nothing to pay
 per receipt. A read takes about ten seconds and asks for one thing: the line
@@ -536,16 +548,6 @@ removes the chore for nothing.
 
 Point the sideloader at the `ios-latest` release asset and it will pick up new
 builds from the same URL.
-
-**Which sideloader.** Use [iloader](https://iloader.app) to get SideStore onto
-the phone, then install this `.ipa` from inside SideStore. Not AltServer: on
-macOS 27 it dies with `could not retrieve anisette data value "machineID"`,
-because the private `AOSKit` call it uses to authenticate returns `-45070` and
-an empty dictionary. That is [an open upstream
-bug](https://github.com/altstoreio/AltStore/issues/1751) with no fix, and
-SideServer-macOS inherits it — same lineage, last released March 2023. iloader
-sidesteps it by construction: its only anisette provider is a remote v3 server
-(`isideload/src/anisette/remote_v3`), so it never calls `AOSKit` at all.
 
 Three things about the native build differ from the website, and all three are
 load-bearing:
