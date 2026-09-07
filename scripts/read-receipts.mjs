@@ -52,8 +52,14 @@ const STORE = join(ROOT, 'receipts.tsv')
 /** Sonnet reads a receipt as well as anything and turns it round in seconds. */
 const MODEL = process.env.RECEIPT_MODEL ?? 'sonnet'
 
-/** A stuck read must not wedge a watcher that is meant to run all day. */
-const TIMEOUT_MS = 180_000
+/**
+ * A stuck read must not wedge a watcher that is meant to run all day.
+ *
+ * A long receipt is a couple of hundred lines of JSON to write out, which takes
+ * minutes on a slow afternoon even when nothing is wrong. The cap is there to
+ * catch a read that is genuinely never coming back, not to race a slow one.
+ */
+const TIMEOUT_MS = 300_000
 
 const WATCH = process.argv.includes('--watch')
 const DEPLOY = process.argv.includes('--deploy')
@@ -61,6 +67,17 @@ const DEPLOY = process.argv.includes('--deploy')
 const PHOTOS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf', '.heic', '.heif'])
 /** Read cannot open an iPhone's native format; `sips` converts it. */
 const NEEDS_CONVERTING = new Set(['.heic', '.heif'])
+/**
+ * The long edge every photo is scaled down to before it is read.
+ *
+ * A photo off a recent iPhone is 48 megapixels — 8064 x 6048, and about 10MB
+ * once it is a JPEG. That is more pixels and more megabytes than the reader
+ * accepts, so the read does not come back slowly, it does not come back at all,
+ * and the timeout kills it. Anything bigger than this gets downscaled at the
+ * other end anyway, so capping it here costs nothing off the receipt and turns
+ * a three-minute hang into a read that returns.
+ */
+const MAX_EDGE = 1568
 
 const RULES = `{"store":string,"date":"YYYY-MM-DD","total":number|null,"currency":string,
  "lines":[{"item":string,"category":string,"qty":number,"price":number,"lifespanWeeks":number|null}]}
@@ -215,6 +232,7 @@ const waiting = () => {
 }
 
 /**
+/**
  * This receipt's photos as files the reader can open, in one scratch directory.
  *
  * Everything is copied or converted out of the watched folder rather than being
@@ -222,6 +240,14 @@ const waiting = () => {
  * this tool has never seen before: the original gets filed, the copy stays
  * behind, and the next pass reads it as a second shop — which the check against
  * re-reading cannot catch, because the two names genuinely differ.
+ *
+ * Every photo goes through sips on the way, not only the iPhone-native ones. A
+ * full-size photo of any format is too large to be read at all — see MAX_EDGE —
+ * so a JPEG straight off the same camera needs the pass just as much as a HEIC
+ * does. That matters more here than it did for a single photo: a folder sends
+ * its parts to one read together, so full-size ones blow the limit even sooner.
+ * A PDF is not pixels and is copied untouched, and a format sips will not take
+ * is copied as it is, which still stands a chance.
  *
  * Numbered on the way in, so the order they are named in the prompt is the
  * order they were taken in.
@@ -233,21 +259,27 @@ function prepare(parts) {
   for (const part of parts) {
     const from = join(ROOT, part)
     const ext = extname(part).toLowerCase()
-    const converting = NEEDS_CONVERTING.has(ext)
-    const to = join(dir, `${String(paths.length + 1).padStart(2, '0')}${converting ? '.jpg' : ext}`)
+    const n = String(paths.length + 1).padStart(2, '0')
 
-    if (converting) {
-      const sips = spawnSync('sips', ['-s', 'format', 'jpeg', from, '--out', to])
-      if (sips.status !== 0 || !existsSync(to)) continue
-    } else {
-      try {
-        copyFileSync(from, to)
-      } catch {
+    if (ext !== '.pdf') {
+      const to = join(dir, `${n}.jpg`)
+      const sips = spawnSync('sips', ['-s', 'format', 'jpeg', '-Z', String(MAX_EDGE), from, '--out', to])
+      if (sips.status === 0 && existsSync(to)) {
+        paths.push(to)
         continue
       }
+      // A HEIC that would not convert cannot be read at all. Anything else is
+      // still worth handing over as it is.
+      if (NEEDS_CONVERTING.has(ext)) continue
     }
 
-    paths.push(to)
+    const copy = join(dir, `${n}${ext}`)
+    try {
+      copyFileSync(from, copy)
+    } catch {
+      continue
+    }
+    paths.push(copy)
   }
 
   return { dir, paths }
@@ -351,9 +383,21 @@ for (const dir of [ROOT, FILED]) {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
 }
 
-async function pass() {
+/**
+ * `quiet` is for the watcher, which calls this every time the folder stirs and
+ * every 30 seconds regardless. Saying "nothing waiting" there would scroll the
+ * one line that matters off the screen; saying it on a one-shot run is the
+ * difference between "there was nothing to do" and a script that looks broken.
+ */
+async function pass(quiet = false) {
   const jobs = waiting()
-  if (jobs.length === 0) return 0
+  if (jobs.length === 0) {
+    if (!quiet) {
+      console.log(`Nothing waiting in ${ROOT.replace(homedir(), '~')}.`)
+      console.log('Drop a receipt photo, or a folder of them, in there and run this again.')
+    }
+    return 0
+  }
 
   const added = await readAll(jobs)
   if (added === 0) return 0
@@ -392,7 +436,7 @@ if (WATCH) {
       if (running) return
       running = true
       try {
-        await pass()
+        await pass(true)
       } finally {
         running = false
       }

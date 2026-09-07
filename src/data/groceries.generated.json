@@ -1,7 +1,340 @@
 {
-  "scannedAt": 0,
+  "scannedAt": 1788806298045,
   "root": "~/Desktop/Receipts",
-  "redacted": false,
+  "redacted": true,
   "target": 150,
-  "receipts": []
+  "receipts": [
+    {
+      "id": "2026-09-04-metro",
+      "store": "",
+      "date": "2026-09-04",
+      "total": 162.25,
+      "photo": "IMG_3297.heic",
+      "status": "pending",
+      "lines": [
+        {
+          "id": "2026-09-04-metro-1",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 2.69,
+          "estimate": 3
+        },
+        {
+          "id": "2026-09-04-metro-2",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 6.29,
+          "estimate": 12
+        },
+        {
+          "id": "2026-09-04-metro-3",
+          "item": "Snacks",
+          "category": "snacks",
+          "qty": 1,
+          "price": 2.69,
+          "estimate": 2
+        },
+        {
+          "id": "2026-09-04-metro-4",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 3.14,
+          "estimate": 4
+        },
+        {
+          "id": "2026-09-04-metro-5",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 2.69,
+          "estimate": 26
+        },
+        {
+          "id": "2026-09-04-metro-6",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 3.14,
+          "estimate": 26
+        },
+        {
+          "id": "2026-09-04-metro-7",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 3.59,
+          "estimate": null
+        },
+        {
+          "id": "2026-09-04-metro-8",
+          "item": "Dairy",
+          "category": "dairy",
+          "qty": 1,
+          "price": 4.49,
+          "estimate": 3
+        },
+        {
+          "id": "2026-09-04-metro-9",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 3.59,
+          "estimate": 4
+        },
+        {
+          "id": "2026-09-04-metro-10",
+          "item": "Dairy",
+          "category": "dairy",
+          "qty": 1,
+          "price": 4.49,
+          "estimate": 2
+        },
+        {
+          "id": "2026-09-04-metro-11",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 2.69,
+          "estimate": 1
+        },
+        {
+          "id": "2026-09-04-metro-12",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 2.69,
+          "estimate": 1
+        },
+        {
+          "id": "2026-09-04-metro-13",
+          "item": "Snacks",
+          "category": "snacks",
+          "qty": 1,
+          "price": 3.14,
+          "estimate": 2
+        },
+        {
+          "id": "2026-09-04-metro-14",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 11.69,
+          "estimate": 4
+        },
+        {
+          "id": "2026-09-04-metro-15",
+          "item": "Pantry",
+          "category": "pantry",
+          "qty": 1,
+          "price": 4.04,
+          "estimate": 26
+        },
+        {
+          "id": "2026-09-04-metro-16",
+          "item": "Beverages",
+          "category": "beverages",
+          "qty": 1,
+          "price": 8.54,
+          "estimate": 4
+        },
+        {
+          "id": "2026-09-04-metro-17",
+          "item": "Household",
+          "category": "household",
+          "qty": 1,
+          "price": 12.59,
+          "estimate": 12
+        },
+        {
+          "id": "2026-09-04-metro-18",
+          "item": "Meat",
+          "category": "meat",
+          "qty": 1,
+          "price": 10.06,
+          "estimate": 1
+        },
+        {
+          "id": "2026-09-04-metro-19",
+          "item": "Produce",
+          "category": "produce",
+          "qty": 1,
+          "price": 2.24,
+          "estimate": 4
+        },
+        {
+          "id": "2026-09-04-metro-20",
+          "item": "Produce",
+          "category": "produce",
+          "qty": 1,
+          "price": 3.14,
+          "estimate": 2
+        },
+        {
+          "id": "2026-09-04-metro-21",
+          "item": "Produce",
+          "category": "produce",
+          "qty": 1,
+          "price": 5.39,
+          "estimate": 1
+        },
+        {
+          "id": "2026-09-04-metro-22",
+          "item": "Produce",
+          "category": "produce",
+          "qty": 1,
+          "price": 1.78,
+          "estimate": 1
+        },
+        {
+          "id": "2026-09-04-metro-23",
+          "item": "Produce",
+          "category": "produce",
+          "qty": 2,
+          "price": 3.04,
+          "estimate": 1
+        },
+        {
+          "id": "2026-09-04-metro-24",
+          "item": "Produce",
+          "category": "produce",
+          "qty": 1,
+          "price": 0.97,
+          "estimate": 8
+        },
+        {
+          "id": "2026-09-04-metro-25",
+          "item": "Produce",
+          "category": "produce",
+          "qty": 1,
+          "price": 4.49,
+          "estimate": 3
+        },
+        {
+          "id": "2026-09-04-metro-26",
+          "item": "Produce",
+          "category": "produce",
+          "qty": 1,
+          "price": 4.49,
+          "estimate": 1
+        },
+        {
+          "id": "2026-09-04-metro-27",
+          "item": "Dairy",
+          "category": "dairy",
+          "qty": 1,
+          "price": 5.21,
+          "estimate": 2
+        },
+        {
+          "id": "2026-09-04-metro-28",
+          "item": "Dairy",
+          "category": "dairy",
+          "qty": 1,
+          "price": 4.49,
+          "estimate": 8
+        },
+        {
+          "id": "2026-09-04-metro-29",
+          "item": "Dairy",
+          "category": "dairy",
+          "qty": 1,
+          "price": 4.04,
+          "estimate": 2
+        },
+        {
+          "id": "2026-09-04-metro-30",
+          "item": "Household",
+          "category": "household",
+          "qty": 4,
+          "price": 1.19,
+          "estimate": null
+        },
+        {
+          "id": "2026-09-04-metro-31",
+          "item": "Meat",
+          "category": "meat",
+          "qty": 1,
+          "price": 8.09,
+          "estimate": 1
+        },
+        {
+          "id": "2026-09-04-metro-32",
+          "item": "Dairy",
+          "category": "dairy",
+          "qty": 1,
+          "price": 13.22,
+          "estimate": 6
+        },
+        {
+          "id": "2026-09-04-metro-33",
+          "item": "Bakery",
+          "category": "bakery",
+          "qty": 1,
+          "price": 3.86,
+          "estimate": 1
+        }
+      ]
+    },
+    {
+      "id": "2026-09-05-walmart",
+      "store": "",
+      "date": "2026-09-05",
+      "total": 48.59,
+      "photo": "IMG_3303.HEIC",
+      "status": "pending",
+      "lines": [
+        {
+          "id": "2026-09-05-walmart-1",
+          "item": "Household",
+          "category": "household",
+          "qty": 1,
+          "price": 0.25,
+          "estimate": null
+        },
+        {
+          "id": "2026-09-05-walmart-2",
+          "item": "Household",
+          "category": "household",
+          "qty": 1,
+          "price": 11.97,
+          "estimate": null
+        },
+        {
+          "id": "2026-09-05-walmart-3",
+          "item": "Other",
+          "category": "other",
+          "qty": 1,
+          "price": 4.47,
+          "estimate": null
+        },
+        {
+          "id": "2026-09-05-walmart-4",
+          "item": "Household",
+          "category": "household",
+          "qty": 1,
+          "price": 2.96,
+          "estimate": 4
+        },
+        {
+          "id": "2026-09-05-walmart-5",
+          "item": "Snacks",
+          "category": "snacks",
+          "qty": 1,
+          "price": 4.38,
+          "estimate": 2
+        },
+        {
+          "id": "2026-09-05-walmart-6",
+          "item": "Personal",
+          "category": "personal",
+          "qty": 1,
+          "price": 18.97,
+          "estimate": null
+        }
+      ]
+    }
+  ]
 }
