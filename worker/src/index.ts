@@ -188,6 +188,23 @@ export default {
         }
       }
 
+      // The receipts, with item names. Gated on the device key for the same
+      // reason the calendar list is: the bundle that asks for this is public,
+      // and what you bought is not.
+      case '/api/groceries': {
+        if (!(await secretsMatch(bearer(request), env.DASHBOARD_TOKEN))) {
+          return json({ error: 'Unauthorized' }, 401, cors)
+        }
+        const stored = await env.GROCERIES.get('receipts', 'text')
+        // Nothing uploaded yet is not an error: the app falls back to the
+        // redacted copy baked into the bundle and says where it got it.
+        if (!stored) return json({ receipts: [], uploadedAt: null }, 200, cors)
+        return new Response(stored, {
+          status: 200,
+          headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors },
+        })
+      }
+
       case '/health':
         return json({ ok: true }, 200, cors)
 

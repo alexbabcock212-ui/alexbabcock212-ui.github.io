@@ -15,6 +15,14 @@ cd "$root"
 if [[ "${SKIP_SCAN:-}" != "1" ]]; then
   bash scripts/scan.sh
   echo
+
+  # The scan redacts item names out of the bundle, because the bundle is public.
+  # This is where the names actually go: the Worker's KV, behind the device key.
+  # Skip with SKIP_GROCERIES=1 to publish without touching them.
+  if [[ "${SKIP_GROCERIES:-}" != "1" ]]; then
+    node scripts/push-groceries.mjs
+    echo
+  fi
 fi
 
 # A build with no service address cannot reach anything, and the failure only

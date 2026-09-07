@@ -11,6 +11,7 @@
     "setup": "node scripts/setup.mjs",
     "doctor": "node scripts/doctor.mjs",
     "scan": "bash scripts/scan.sh",
+    "groceries:push": "node scripts/push-groceries.mjs",
     "receipts": "node scripts/read-receipts.mjs",
     "deploy": "bash scripts/deploy.sh",
     "ios": "bash scripts/ios.sh",

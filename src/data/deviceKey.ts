@@ -62,3 +62,6 @@ export function adoptDeviceKey(): string {
 }
 
 export const hasDeviceKey = () => read() !== ''
+
+/** The key as it stands, for a caller that needs to send it somewhere. */
+export const deviceKey = (): string => read()

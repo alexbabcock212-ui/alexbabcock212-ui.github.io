@@ -10,6 +10,12 @@ compatibility_date = "2026-08-01"
 #   npx wrangler secret put GOOGLE_REFRESH_TOKEN
 #   npx wrangler secret put DASHBOARD_TOKEN
 #   npx wrangler secret put SETUP_TOKEN
+# The receipts, uploaded by `npm run deploy`. An id is not a secret: reading
+# anything out of it still needs DASHBOARD_TOKEN.
+[[kv_namespaces]]
+binding = "GROCERIES"
+id = "541eaf6618ed43e09c1a192b72853fa8"
+
 [vars]
 # The web app on Pages, the dev server, and the native iOS build — a Capacitor
 # WKWebView serves the bundle from `capacitor://localhost`, so that is the

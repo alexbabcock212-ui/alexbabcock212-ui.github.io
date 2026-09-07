@@ -3,7 +3,8 @@ import EmptyState from '../components/EmptyState'
 import Trend from '../components/Trend'
 import { CATEGORY_WEEKS, correct, itemKey, receiptTotal, toGroceries } from '../data/groceries'
 import type { LineEdit, PantryEdits } from '../data/groceries'
-import { loadEdits, pantryRoot, receipts, saveEdits, scannedAt, weeklyTarget } from '../data/pantry'
+import { loadEdits, pantryRoot, saveEdits, scannedAt, weeklyTarget } from '../data/pantry'
+import { useReceipts } from '../data/useReceipts'
 import type { GroceryCategory, LifespanSource, Receipt, ReceiptLine } from '../data/types'
 
 const CATEGORIES = Object.keys(CATEGORY_WEEKS) as GroceryCategory[]
@@ -50,13 +51,16 @@ const draftOf = (line: ReceiptLine): Draft => ({
 /**
  * What a week of food costs.
  *
- * The screen owns its own state rather than taking it from the dashboard: none
- * of this comes from the Worker. The receipts are baked in at deploy time and
- * the corrections live in this browser, so every figure here is recomputed from
- * the two of them at render — which is the whole reason correcting a lifespan
- * fixes the past as well as the present.
+ * The screen owns its own state rather than taking it from the dashboard. The
+ * figures are baked in at deploy time and the corrections live in this browser,
+ * so every one of them is recomputed from the two at render — which is the
+ * whole reason correcting a lifespan fixes the past as well as the present.
+ *
+ * The item names are the exception: they come from the Worker, because the
+ * bundle carrying everything else is public. See `useReceipts`.
  */
 export default function GroceriesView() {
+  const { receipts, source: names } = useReceipts()
   const [edits, setEdits] = useState<PantryEdits>(loadEdits)
   const [open, setOpen] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
@@ -73,7 +77,7 @@ export default function GroceriesView() {
 
   const groceries = useMemo(
     () => toGroceries(receipts, edits, now, weeklyTarget, scannedAt),
-    [edits, now],
+    [receipts, edits, now],
   )
 
   const { pending, pendingTotal, weeks, items, restock, moves } = groceries
@@ -449,6 +453,12 @@ export default function GroceriesView() {
             the originals are filed, never deleted. Corrections you make here stay on this device and
             are applied over the reading; they never change what the receipt said.
           </span>
+          {names === 'baked' && (
+            <span className="ld-rebuild__note">
+              Item names are not in this bundle — it is served from a public repository, so what
+              ships in it is categories. Open this screen on a device holding the key to see them.
+            </span>
+          )}
         </footer>
       )}
     </div>

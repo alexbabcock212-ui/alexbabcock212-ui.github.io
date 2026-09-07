@@ -18,4 +18,13 @@ export interface Env {
   /** Comma-separated calendar names to skip. Google's own feeds are always
    *  skipped; this is for the ones only you know are noise. */
   CALENDAR_EXCLUDE?: string
+  /**
+   * The receipts, with the item names on them.
+   *
+   * They live here rather than in the bundle because the bundle is served from
+   * a public repository, and a shopping list is more personal than it sounds.
+   * Written by `npm run deploy` on the Mac, read back only by a device holding
+   * the key — the same bargain as the calendar names.
+   */
+  GROCERIES: KVNamespace
 }
