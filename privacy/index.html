@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1d2d3d" />
+    <meta
+      name="description"
+      content="What Google data Life Dashboard reads, where it goes, and how to revoke it."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/legal.css" />
+    <title>Privacy Policy — Life Dashboard</title>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="kicker">Life Dashboard</div>
+        <h1>Privacy Policy</h1>
+        <p class="updated">Last updated 27 August 2026</p>
+      </header>
+
+      <p class="lede">
+        Life Dashboard is a personal project built and used by one person, Alex Babcock. It is
+        not a product, not a service offered to anyone else, and has exactly one user. This page
+        describes what it reads from Google, what else it fetches, where that data goes, and how
+        to stop it.
+      </p>
+
+      <h2>What it is</h2>
+      <p>
+        Life Dashboard is a private web app that assembles a morning brief — the day's classes
+        hour by hour, what is due in the next fortnight, and where the North American markets
+        stand. The personal half is read from the owner's own Google account; the market half is
+        public data that belongs to nobody in particular. Both are displayed on the owner's own
+        phone.
+      </p>
+
+      <h2>What it reads from Google</h2>
+      <p>Two read-only scopes. Nothing is ever written back to any Google service.</p>
+
+      <table>
+        <thead>
+          <tr><th>Scope</th><th>What is actually read</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>calendar.readonly</code></td>
+            <td>
+              Events on the primary calendar within a rolling 14-day window: title, start and end
+              time, location, and the dates of all-day entries.
+            </td>
+          </tr>
+          <tr>
+            <td><code>tasks.readonly</code></td>
+            <td>Open (not completed) tasks: list name, title, notes, and due date.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        An earlier version of this app also read <code>gmail.readonly</code> to group unread mail
+        by sender. That screen has been removed and the scope with it: no Gmail request is made
+        by any part of this app any more.
+      </p>
+
+      <h2>What it reads that is not yours</h2>
+      <p>
+        The market screen is assembled from two kinds of public feed, requested by the Worker
+        with no credential of any sort and no identifier for the person looking at them:
+      </p>
+      <ul>
+        <li>
+          <strong>Quotes</strong> — last price, previous close and the current session's path for
+          a fixed list of fourteen indexes, rates, currencies and commodities.
+        </li>
+        <li>
+          <strong>Headlines</strong> — the public RSS feeds published by CNBC and CBC. Only
+          headline text, timestamp and link are read. No article body is fetched or stored, and
+          every headline is shown with its source and links back to it.
+        </li>
+      </ul>
+
+      <h2>Where the data goes</h2>
+      <ul>
+        <li>
+          <strong>A Cloudflare Worker</strong> holds the Google credentials and makes the API
+          calls. Responses pass through it and may be held in an in-memory cache for up to two
+          minutes. Nothing is written to a database, because there is no database.
+        </li>
+        <li>
+          <strong>The owner's phone</strong> keeps the most recent response in browser storage
+          (<code>localStorage</code>) for up to 14 days, so the app opens instantly and works
+          without a network connection. Clearing the browser's site data erases it.
+        </li>
+        <li>
+          <strong>Nowhere else.</strong> No analytics, no tracking, no advertising, no error
+          reporting service, no third-party scripts, and no other recipients of any kind.
+        </li>
+      </ul>
+
+      <h2>Google API Services Limited Use</h2>
+      <p>
+        Life Dashboard's use and transfer of information received from Google APIs adheres to the
+        <a
+          href="https://developers.google.com/terms/api-services-user-data-policy"
+          rel="noopener noreferrer"
+          >Google API Services User Data Policy</a
+        >, including the Limited Use requirements. Specifically: the data is used only to display
+        the owner's own dashboard to the owner, it is never transferred to anyone, it is never
+        sold, it is never used for advertising, and it is never used to train any machine
+        learning or AI model. No human reads it other than the account owner.
+      </p>
+
+      <h2>Course files</h2>
+      <p>
+        The Courses screen lists coursework kept in a folder on the owner's own computer. Only
+        folder and file <em>names</em> are read — file contents never leave that computer. Those
+        names are compiled into the published site, which is hosted publicly, and the owner is
+        aware of this.
+      </p>
+
+      <h2>Retention and revoking access</h2>
+      <ul>
+        <li>
+          Google access can be revoked at any time at
+          <a href="https://myaccount.google.com/permissions" rel="noopener noreferrer"
+            >myaccount.google.com/permissions</a
+          >. The app stops working immediately when it is.
+        </li>
+        <li>
+          The cached copy on the phone expires after 14 days on its own, and is removed
+          immediately by clearing the browser's site data for this site.
+        </li>
+        <li>
+          There is no account to delete, no sign-up, no mailing list, and no data retained on any
+          server after a request completes.
+        </li>
+      </ul>
+
+      <h2>Children</h2>
+      <p>This is a single-user personal tool and is not directed at children.</p>
+
+      <h2>Changes</h2>
+      <p>
+        If what the app reads ever changes, this page changes with it, and the date at the top is
+        updated.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions can be raised via the project's public repository at
+        <a
+          href="https://github.com/alexbabcock212-ui/alexbabcock212-ui.github.io"
+          rel="noopener noreferrer"
+          >github.com/alexbabcock212-ui</a
+        >.
+      </p>
+
+      <footer>
+        <a href="/">Home</a><a href="/terms/">Terms of Service</a>
+      </footer>
+    </main>
+  </body>
+</html>
